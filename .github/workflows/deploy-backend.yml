@@ -1,26 +1,43 @@
-name: Deploy Taobao importer backend
+name: Deploy Backend to Render
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'server/**'
+      - '.github/workflows/deploy-backend.yml'
 
 jobs:
   deploy:
+    name: Deploy server to Render
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'server/package-lock.json'
 
-      - name: Deploy via Render CLI (npx)
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Deploy via Render Deploy Hook
+        if: github.ref == 'refs/heads/main'
         env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
         run: |
-          npx --yes render-cli deploy \
-            --service-id "${RENDER_SERVICE_ID}" \
-            --wait \
-            --production
+          if [ -z "$RENDER_DEPLOY_HOOK" ]; then
+            echo "⚠️  WARNING: RENDER_DEPLOY_HOOK secret is not set"
+            echo "To enable auto-deployment, add RENDER_DEPLOY_HOOK to GitHub Secrets"
+            exit 0
+          fi
+          echo "🚀 Triggering Render deployment..."
+          curl -X POST "$RENDER_DEPLOY_HOOK"
+          echo "✅ Deployment triggered successfully!"

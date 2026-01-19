@@ -1,8 +1,12 @@
-name: Deploy Cloudflare Pages
+name: Deploy Frontend to Cloudflare Pages
 
 on:
   push:
     branches: [main]
+    paths:
+      - '*.html'
+      - 'assets/**'
+      - '.github/workflows/deploy-pages.yml'
 
 jobs:
   publish:
@@ -11,12 +15,35 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Deploy to Pages
+      - name: Check Cloudflare Secrets
+        id: check-secrets
+        continue-on-error: true
+        run: |
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] || [ -z "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ] || [ -z "${{ secrets.CLOUDFLARE_PROJECT_NAME }}" ]; then
+            echo "⚠️ Missing Cloudflare secrets. Skipping deployment."
+            echo "configured=false" >> $GITHUB_OUTPUT
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to Cloudflare Pages
+        if: steps.check-secrets.outputs.configured == 'true'
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: ${{ secrets.CLOUDFLARE_PROJECT_NAME }}
           directory: "."
-
+          workingDirectory: "."
+      
+      - name: Deployment Status
+        run: |
+          if [ "${{ steps.check-secrets.outputs.configured }}" = "true" ]; then
+            echo "✅ Frontend deployed to Cloudflare Pages successfully!"
+          else
+            echo "⚠️ Cloudflare Pages deployment skipped - secrets not configured"
+            echo "Setup guide: https://github.com/kimngocthuy0512-eng/ban-hang-taobao/blob/main/DEPLOYMENT_SETUP.md"
+          fi

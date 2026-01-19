@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: taobao-shop-backend
+    runtime: node
+    plan: free
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 8787
+      - key: NODE_ENV
+        value: production
+      - key: TAOBAO_LOGIN_TIMEOUT
+        value: "300000"
+      - key: TAOBAO_LOGIN_MIN_WAIT
+        value: "60000"
+      - key: LOG_LEVEL
+        value: info
+    rootDir: server
+    buildCommand: npm ci --omit=dev
+    maxInstances: 1
+    minInstances: 1
+    healthCheckPath: /health
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=3600
