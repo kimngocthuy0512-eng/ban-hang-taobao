@@ -1678,11 +1678,132 @@
     }
   };
 
+  const renderCategoryChips = (categories, container, grid, products) => {
+    if (!container || !grid || !categories.length) return;
+    const normalized = categories.map((category) => category || "Khác");
+    const createButton = (label) => {
+      const button = document.createElement("button");
+      button.className = "category-chip";
+      button.textContent = label;
+      button.dataset.category = label;
+      return button;
+    };
+    const clearActive = () => {
+      container.querySelectorAll(".category-chip").forEach((chip) => {
+        chip.classList.remove("active");
+      });
+    };
+    container.innerHTML = "";
+    const allChip = createButton("Tất cả");
+    allChip.classList.add("active");
+    allChip.addEventListener("click", () => {
+      clearActive();
+      allChip.classList.add("active");
+      renderProductGrid(products.slice(0, 4), grid, "compact");
+    });
+    container.appendChild(allChip);
+    normalized.forEach((category) => {
+      if (!category) return;
+      const label = category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      const chip = createButton(label);
+      chip.addEventListener("click", () => {
+        clearActive();
+        chip.classList.add("active");
+        const filtered = products.filter((product) => (product.category || "Khác") === category);
+        if (filtered.length) {
+          renderProductGrid(filtered, grid, "compact");
+        } else {
+          renderProductGrid(products.slice(0, 4), grid, "compact");
+        }
+      });
+      container.appendChild(chip);
+    });
+  };
+
+  const renderSyncCard = (container, snapshot, statusMessage = "") => {
+    if (!container) return;
+    const productCount = (snapshot?.products || []).length;
+    const orderCount = (snapshot?.orders || []).length;
+    const customerCount = Object.keys(snapshot?.customers || {}).length;
+    const updatedAt = snapshot?.meta?.updatedAt || "";
+    const updatedDate = updatedAt ? new Date(updatedAt) : null;
+    const updatedLabel = updatedDate
+      ? updatedDate.toLocaleString("vi-VN", { hour12: false })
+      : "Chưa đồng bộ";
+    container.innerHTML = `
+      <div class="sync-card">
+        <div class="sync-card-header">
+          <strong>Trạng thái đồng bộ trực tiếp</strong>
+          <span class="sync-status">${statusMessage || "Đã cập nhật lần cuối"}</span>
+        </div>
+        <div class="sync-metrics">
+          <div class="sync-metric">
+            <strong>${productCount}</strong>
+            <span>Sản phẩm</span>
+          </div>
+          <div class="sync-metric">
+            <strong>${orderCount}</strong>
+            <span>Đơn hàng</span>
+          </div>
+          <div class="sync-metric">
+            <strong>${customerCount}</strong>
+            <span>Khách hàng</span>
+          </div>
+        </div>
+        <div class="sync-metadata">
+          <p>Đã cập nhật: ${updatedLabel}</p>
+        </div>
+        <div class="sync-actions">
+          <button id="manualSyncBtn">Đồng bộ ngay</button>
+        </div>
+      </div>
+    `;
+    const button = document.getElementById("manualSyncBtn");
+    if (button) {
+      button.addEventListener("click", async () => {
+        const results = await performSync({ reason: "manual" });
+        renderSyncCard(container, snapshot, results.message || "Đã đồng bộ xong");
+      });
+    }
+  };
+
+  const fetchAndRenderSync = async (container) => {
+    const settings = getSettings();
+    if (!container || !settings.syncEndpoint) return;
+    try {
+      const snapshot = await fetch(buildSyncUrl(settings)).then((res) => res.json());
+      renderSyncCard(container, snapshot);
+    } catch (error) {
+      renderSyncCard(container, {}, "Không kết nối được");
+    }
+  };
+
+  const setupActionGrid = () => {
+    const grid = document.getElementById("actionGrid");
+    if (!grid) return;
+    grid.addEventListener("click", (event) => {
+      const card = event.target.closest(".action-card");
+      if (!card) return;
+      card.classList.add("active");
+      setTimeout(() => card.classList.remove("active"), 400);
+      const action = card.dataset.action;
+      if (action === "use") {
+        window.location.href = "shop.html";
+      }
+      if (action === "buy") {
+        window.location.href = "checkout.html";
+      }
+    });
+  };
+
   const initHome = () => {
     const settings = getSettings();
     const products = getVisibleProducts();
+    const featuredGrid = document.getElementById("featuredGrid");
     renderRatePanel(document.getElementById("homeRates"), settings);
-    renderProductGrid(products.slice(0, 3), document.getElementById("featuredGrid"), "compact");
+    if (featuredGrid) {
+      renderProductGrid(products.slice(0, 3), featuredGrid, "compact");
+    }
     renderWishlistSections();
     bindSearchRedirect(
       document.getElementById("homeSearch"),
@@ -1695,6 +1816,16 @@
         runAutoImport();
       });
     }
+    const syncPanel = document.getElementById("syncStatus");
+    if (syncPanel) {
+      fetchAndRenderSync(syncPanel);
+    }
+    const categoryChips = document.getElementById("categoryChips");
+    if (categoryChips && featuredGrid) {
+      const categories = Array.from(new Set(products.map((product) => product.category || "Khác")));
+      renderCategoryChips(categories, categoryChips, featuredGrid, products);
+    }
+    setupActionGrid();
   };
 
   const renderAutoImportStatus = (status) => {

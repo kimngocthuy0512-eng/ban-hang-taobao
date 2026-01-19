@@ -638,6 +638,168 @@ textarea {
   color: var(--muted);
 }
 
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.action-card {
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7));
+  border-radius: var(--radius);
+  padding: 1.1rem;
+  box-shadow: 0 12px 40px rgba(15, 20, 30, 0.15);
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.action-card h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.2rem;
+}
+
+.action-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.action-card .action-dot {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 179, 71, 0.4), transparent 70%);
+  bottom: -30px;
+  right: -30px;
+  pointer-events: none;
+  animation: pulse 3.2s ease infinite;
+}
+
+.action-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 25px 50px rgba(15, 20, 30, 0.25);
+}
+
+.sync-panel {
+  margin-top: 1rem;
+}
+
+.sync-card {
+  padding: 1rem;
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.sync-card .sync-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sync-status {
+  font-size: 0.8rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sync-metadata {
+  font-size: 0.8rem;
+  opacity: 0.75;
+  text-align: center;
+}
+
+.sync-card .sync-metrics {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.sync-metric {
+  flex: 1;
+  min-width: 120px;
+  text-align: center;
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.sync-metric:last-child {
+  border-right: none;
+}
+
+.sync-metric strong {
+  display: block;
+  font-size: 1.2rem;
+}
+
+.sync-card .sync-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.sync-card button {
+  border: none;
+  padding: 0.6rem 1.3rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  transition: transform 0.3s ease;
+}
+
+.sync-card button:hover {
+  transform: translateY(-2px);
+}
+
+.category-wrapper {
+  margin-top: 1rem;
+}
+
+.category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.category-chip {
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.3s ease, border 0.3s ease;
+}
+
+.category-chip.active {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+}
+
 .guide-step {
   width: 34px;
   height: 34px;
