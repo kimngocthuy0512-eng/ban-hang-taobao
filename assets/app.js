@@ -1492,6 +1492,7 @@
       const palette = product.palette?.length ? product.palette : ["#2a2f45", "#374766", "#ffb347"];
       const images = getProductImages(product);
       const heroImage = images[0] || "";
+      const highlightBadge = (product.tags && product.tags.length ? product.tags[0] : "New").toString().toUpperCase();
       const overlayDesc = descMarkup ? `<p class="product-desc">${descMarkup}</p>` : "";
       return `
       <article class="card product-card ${wished ? "is-wish" : ""}" data-product-card data-id="${product.id}" tabindex="0">
@@ -1501,6 +1502,7 @@
           </svg>
         </button>
         <div class="product-image">
+          <span class="product-highlight-badge">${highlightBadge}</span>
           <img class="product-image-inner" data-src="${heroImage}" alt="${getDisplayName(product)}" />
           <div class="product-image-gloss"></div>
           <div class="product-meta-overlay">
