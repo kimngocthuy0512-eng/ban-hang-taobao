@@ -73,6 +73,97 @@ const ensureDirExists = (dir) => {
   }
 };
 
+const SHOP_SORT_OPTIONS = [
+  { value: "new", label: "Mới nhất" },
+  { value: "price-asc", label: "Giá tăng" },
+  { value: "price-desc", label: "Giá giảm" },
+];
+
+const SHOP_VIEW_MODES = ["grid", "compact", "list"];
+
+const createEmptySnapshot = () => ({
+  meta: { updatedAt: new Date(0).toISOString() },
+  settings: {},
+  products: [],
+  orders: [],
+  customers: {},
+});
+
+const getSnapshotForKey = (key) => {
+  const store = loadSyncStore();
+  return store[key] || createEmptySnapshot();
+};
+
+const formatMetadataLabel = (value) => {
+  if (!value) return "";
+  return String(value)
+    .replace(/[_-]/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+    .trim();
+};
+
+const sortSizesForMetadata = (sizes = []) => {
+  const numeric = [];
+  const alpha = [];
+  sizes.forEach((size) => {
+    const normalized = String(size || "").trim();
+    if (!normalized) return;
+    if (/^\d+(\.\d+)?$/.test(normalized)) {
+      numeric.push(Number(normalized));
+      return;
+    }
+    alpha.push(normalized);
+  });
+  const sortedNumeric = [...new Set(numeric)].sort((a, b) => a - b).map((value) => String(value));
+  const sortedAlpha = Array.from(new Set(alpha)).sort((a, b) => a.localeCompare(b, "vi"));
+  return [...sortedNumeric, ...sortedAlpha];
+};
+
+const buildShopMetadata = (snapshot) => {
+  const products = Array.isArray(snapshot?.products) ? snapshot.products : [];
+  const categoryMap = new Map();
+  const sizeCollector = [];
+  const tagSet = new Set();
+  products.forEach((product) => {
+    const category = String(product?.category || "").trim();
+    if (category && !categoryMap.has(category)) {
+      categoryMap.set(category, {
+        value: category,
+        label: formatMetadataLabel(category),
+      });
+    }
+    const variantSizes = [
+      ...(product?.sizesText || []),
+      ...(product?.sizesNum || []),
+      ...(Array.isArray(product?.sizes) ? product.sizes : []),
+    ];
+    variantSizes.forEach((size) => {
+      const normalized = String(size || "").trim();
+      if (normalized) {
+        sizeCollector.push(normalized);
+      }
+    });
+    (product?.tags || []).forEach((tag) => {
+      const normalized = String(tag || "").trim();
+      if (normalized) {
+        tagSet.add(normalized);
+      }
+    });
+  });
+  const categories = Array.from(categoryMap.values()).sort((a, b) =>
+    a.label.localeCompare(b.label, "vi")
+  );
+  const sizes = sortSizesForMetadata(sizeCollector);
+  const tags = Array.from(tagSet).sort((a, b) => a.localeCompare(b, "vi"));
+  return {
+    categories,
+    sizes,
+    tags,
+    sortOptions: SHOP_SORT_OPTIONS,
+    viewModes: SHOP_VIEW_MODES,
+  };
+};
+
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const appendLogHeader = () => {
@@ -918,16 +1009,15 @@ app.get("/health", (req, res) => {
 
 app.get("/sync", (req, res) => {
   const key = normalizeSyncKey(req.query.key);
-  const store = loadSyncStore();
-  const snapshot =
-    store[key] || {
-      meta: { updatedAt: new Date(0).toISOString() },
-      settings: {},
-      products: [],
-      orders: [],
-      customers: {},
-    };
+  const snapshot = getSnapshotForKey(key);
   res.json(snapshot);
+});
+
+app.get("/metadata", (req, res) => {
+  const key = normalizeSyncKey(req.query.key);
+  const snapshot = getSnapshotForKey(key);
+  const metadata = buildShopMetadata(snapshot);
+  res.json({ ok: true, metadata });
 });
 
 app.post("/sync", (req, res) => {

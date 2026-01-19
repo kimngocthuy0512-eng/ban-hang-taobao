@@ -1383,6 +1383,21 @@ textarea {
   justify-content: flex-end;
 }
 
+.filter-status {
+  margin-top: 0.45rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  min-height: 1.1rem;
+}
+
+.filter-status.success {
+  color: #0d6e43;
+}
+
+.filter-status.error {
+  color: #c94c4c;
+}
+
 @media (min-width: 640px) {
   .filter-panel .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

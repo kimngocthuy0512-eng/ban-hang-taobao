@@ -156,6 +156,110 @@
     return merged;
   };
 
+  const SHOP_SORT_OPTIONS = [
+    { value: "new", label: "Mới nhất" },
+    { value: "price-asc", label: "Giá tăng" },
+    { value: "price-desc", label: "Giá giảm" },
+  ];
+
+  const SHOP_VIEW_MODES = ["grid", "compact", "list"];
+
+  const SHOP_METADATA_DEFAULT = {
+    categories: [],
+    sizes: [],
+    sortOptions: SHOP_SORT_OPTIONS,
+  };
+
+  const escapeHtml = (value) =>
+    String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const getSyncBaseUrl = (settings) => {
+    const raw = (settings?.syncEndpoint || "").trim();
+    if (!raw) return "";
+    try {
+      const url = new URL(raw);
+      const segments = url.pathname
+        .split("/")
+        .filter(Boolean)
+        .filter((segment, index, array) => !(index === array.length - 1 && segment === "sync"));
+      url.pathname = segments.length ? `/${segments.join("/")}` : "";
+      url.search = "";
+      url.hash = "";
+      const trimmed = url.toString().replace(/\/$/, "");
+      return trimmed;
+    } catch (error) {
+      return raw.replace(/\/sync\/?$/, "").replace(/\/$/, "");
+    }
+  };
+
+  const buildSyncMetadataUrl = (settings) => {
+    const base = getSyncBaseUrl(settings);
+    if (!base) return "";
+    try {
+      const url = new URL(`${base}/metadata`);
+      if (settings.syncKey) url.searchParams.set("key", settings.syncKey);
+      return url.toString();
+    } catch (error) {
+      return `${base}/metadata`;
+    }
+  };
+
+  const populateFilterOptions = (select, items = [], defaultLabel = "Tất cả") => {
+    if (!select) return;
+    const optionHtml = [`<option value="">${escapeHtml(defaultLabel)}</option>`];
+    items.forEach((item) => {
+      const value = item?.value ?? item;
+      if (!value) return;
+      const label = item?.label || (item?.text || value);
+      optionHtml.push(
+        `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`
+      );
+    });
+    select.innerHTML = optionHtml.join("");
+  };
+
+  const applyShopMetadataToFilters = (metadata, controls = {}) => {
+    const { categoryFilter, sizeFilter, sortFilter } = controls;
+    const categories = Array.isArray(metadata?.categories) ? metadata.categories : [];
+    const sizes = Array.isArray(metadata?.sizes) ? metadata.sizes : [];
+    const sortOptions = Array.isArray(metadata?.sortOptions) ? metadata.sortOptions : SHOP_SORT_OPTIONS;
+    if (categoryFilter) {
+      populateFilterOptions(categoryFilter, categories, "Tất cả danh mục");
+    }
+    if (sizeFilter) {
+      const sizeItems = sizes.map((value) => ({ value, label: value }));
+      populateFilterOptions(sizeFilter, sizeItems, "Tất cả size");
+    }
+    if (sortFilter) {
+      populateFilterOptions(sortFilter, sortOptions, "Sắp xếp");
+    }
+  };
+
+  const fetchShopMetadata = async () => {
+    const settings = getSettings();
+    const url = buildSyncMetadataUrl(settings);
+    if (!url) return null;
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(response.statusText || "Không lấy được metadata.");
+      }
+      const payload = await response.json();
+      if (!payload?.ok) {
+        throw new Error(payload?.message || "Không lấy được metadata.");
+      }
+      return payload.metadata || null;
+    } catch (error) {
+      console.warn("Không thể tải metadata cửa hàng:", error);
+      return null;
+    }
+  };
+
   const DEFAULT_PRODUCTS = [
     {
       id: "P001",
@@ -1984,6 +2088,24 @@
     [sizeFilter, categoryFilter, sortFilter].forEach((select) => {
       select.addEventListener("change", applyFilters);
     });
+
+    const metadataStatus = document.getElementById("shopMetadataStatus");
+    if (metadataStatus) {
+      metadataStatus.classList.remove("success", "error");
+      metadataStatus.textContent = "Đang cập nhật bộ lọc...";
+    }
+    const metadata = await fetchShopMetadata();
+    const combinedMetadata = {
+      ...SHOP_METADATA_DEFAULT,
+      ...(metadata || {}),
+    };
+    applyShopMetadataToFilters(combinedMetadata, { categoryFilter, sizeFilter, sortFilter });
+    if (metadataStatus) {
+      metadataStatus.classList.add(metadata ? "success" : "error");
+      metadataStatus.textContent = metadata
+        ? "Bộ lọc đã đồng bộ từ backend."
+        : "Không thể tải bộ lọc từ backend. Đang dùng giá trị mặc định.";
+    }
 
     setViewMode(viewMode);
   };
