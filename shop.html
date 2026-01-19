@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Order Hub JP/VN · Cửa hàng</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body data-page="shop">
+    <header class="app-bar">
+      <div class="app-bar-inner">
+        <div class="logo">
+          <div class="logo-mark">JP</div>
+          <div>
+            <div class="logo-title">Order Hub</div>
+            <div class="logo-sub">Cửa hàng · Lọc nhanh</div>
+          </div>
+        </div>
+        <nav class="nav-chips">
+          <a class="chip" data-nav="home" href="index.html">Trang chủ</a>
+          <a class="chip" data-nav="shop" href="shop.html">Cửa hàng</a>
+          <a class="chip" data-nav="product" href="product.html">Chi tiết</a>
+          <a class="chip" data-nav="cart" href="cart.html">Giỏ hàng</a>
+          <a class="chip" data-nav="checkout" href="checkout.html">Đặt hàng</a>
+          <a class="chip" data-nav="payment" href="payment.html">Thanh toán</a>
+        </nav>
+        <div class="actions">
+          <div class="search">
+            <input
+              id="shopSearch"
+              type="search"
+              data-search
+              placeholder="Search nhanh sản phẩm..."
+            />
+            <span>Ctrl+K</span>
+          </div>
+          <a class="btn ghost small" href="index.html#wishlistSection"
+            >Yêu thích (<span data-wishlist-count>0</span>)</a
+          >
+          <a class="btn ghost small" href="cart.html">Giỏ (<span data-cart-count>0</span>)</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Bộ lọc sản phẩm</h2>
+          <div class="line"></div>
+        </div>
+        <details class="card panel compact filter-panel">
+          <summary class="filter-summary">
+            <span class="summary-title">Bộ lọc nhanh</span>
+            <span class="summary-meta">
+              <span id="filterSummary">Chưa lọc</span>
+              <span class="summary-dot">•</span>
+              <span id="resultCount">0 sản phẩm</span>
+            </span>
+          </summary>
+          <div class="form-grid">
+            <div class="field">
+              <label for="priceMin">Giá (từ)</label>
+              <input id="priceMin" type="number" placeholder="VD: 80" />
+            </div>
+            <div class="field">
+              <label for="priceMax">Giá (đến)</label>
+              <input id="priceMax" type="number" placeholder="VD: 320" />
+            </div>
+            <div class="field">
+              <label for="sizeFilter">Size</label>
+              <select id="sizeFilter">
+                <option value="">Tất cả</option>
+                <option value="S">S</option>
+                <option value="M">M</option>
+                <option value="L">L</option>
+                <option value="XL">XL</option>
+                <option value="38">38</option>
+                <option value="39">39</option>
+                <option value="40">40</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="sizeMode">Chế độ size</label>
+              <select id="sizeMode">
+                <option value="">Tự động</option>
+                <option value="letter">Size chữ (quần áo)</option>
+                <option value="number">Size số (giày dép)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="categoryFilter">Danh mục</label>
+              <select id="categoryFilter">
+                <option value="">Tất cả</option>
+                <option value="outerwear">Outerwear</option>
+                <option value="sneakers">Sneakers</option>
+                <option value="bags">Bags</option>
+                <option value="lifestyle">Lifestyle</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="sortFilter">Sắp xếp</label>
+              <select id="sortFilter">
+                <option value="new">Mới nhất</option>
+                <option value="price-asc">Giá tăng</option>
+                <option value="price-desc">Giá giảm</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Hiển thị</label>
+              <div class="segment" id="viewButtons">
+                <button type="button" data-view="grid">Lưới</button>
+                <button type="button" data-view="compact">Thu gọn</button>
+                <button type="button" data-view="list">Danh sách</button>
+              </div>
+            </div>
+          </div>
+          <div class="filter-actions">
+            <button class="btn ghost small" type="button" id="clearFilters">Xoá lọc</button>
+          </div>
+        </details>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Danh sách sản phẩm</h2>
+          <div class="line"></div>
+        </div>
+        <div class="product-grid" id="shopGrid" data-view="grid"></div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Tỷ giá & giỏ hàng</h2>
+          <div class="line"></div>
+        </div>
+        <div class="grid-2">
+          <div id="shopRates"></div>
+          <div id="shopCartSummary"></div>
+        </div>
+      </section>
+    </main>
+
+    <a class="emergency" data-emergency href="#">Liên hệ khẩn cấp</a>
+
+    <nav class="bottom-nav">
+      <a data-nav="home" href="index.html">Home</a>
+      <a data-nav="shop" href="shop.html">Shop</a>
+      <a data-nav="cart" href="cart.html">Cart (<span data-cart-count>0</span>)</a>
+      <a data-nav="payment" href="payment.html">Pay</a>
+    </nav>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <div>
+          <h3>Liên hệ</h3>
+          <p>Hotline: 0900-888-123</p>
+          <p>Email: support@orderhub.vn</p>
+        </div>
+        <div>
+          <h3>Chính sách</h3>
+          <p>Đổi trả 7 ngày</p>
+          <p>Hỗ trợ báo giá ship trong 24h</p>
+        </div>
+        <div class="footer-cat">
+          <button class="cat-btn" data-admin-cat type="button" aria-label="Admin">=^.^=</button>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

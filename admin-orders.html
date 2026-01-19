@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Order Hub JP/VN · Admin Đơn hàng</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body data-page="admin-orders">
+    <header class="app-bar">
+      <div class="app-bar-inner">
+        <div class="logo">
+          <div class="logo-mark">JP</div>
+          <div>
+            <div class="logo-title">Order Hub</div>
+            <div class="logo-sub">Admin · Đơn hàng</div>
+          </div>
+        </div>
+        <nav class="nav-chips admin-nav">
+          <a class="chip" data-nav="admin-dashboard" href="admin.html">Tổng quan</a>
+          <a class="chip" data-nav="admin-products" href="admin-products.html">Sản phẩm</a>
+          <a class="chip" data-nav="admin-orders" href="admin-orders.html">Đơn hàng</a>
+          <a class="chip" data-nav="admin-quotes" href="admin-quotes.html">Báo giá</a>
+          <a class="chip" data-nav="admin-payments" href="admin-payments.html">Thanh toán</a>
+          <a class="chip" data-nav="admin-tracking" href="admin-tracking.html">Lộ trình</a>
+          <a class="chip" data-nav="admin-customers" href="admin-customers.html">Khách hàng</a>
+          <a class="chip" data-nav="admin-settings" href="admin-settings.html">Cấu hình</a>
+          <a class="chip" data-nav="admin-reports" href="admin-reports.html">Báo cáo</a>
+        </nav>
+        <div class="actions">
+          <button class="btn ghost small" id="adminLogout" type="button">Đăng xuất</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-shell admin-shell">
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Danh sách đơn hàng</h2>
+          <div class="line"></div>
+        </div>
+        <div class="card admin-panel">
+          <div class="form-grid">
+            <div class="field">
+              <label for="orderStatusFilter">Lọc trạng thái</label>
+              <select id="orderStatusFilter">
+                <option value="all">Tất cả</option>
+                <option value="PENDING_QUOTE">Chờ báo giá</option>
+                <option value="QUOTED_WAITING_PAYMENT">Chờ thanh toán</option>
+                <option value="PAYMENT_UNDER_REVIEW">Đang xác nhận</option>
+                <option value="PAID">Đã thanh toán</option>
+                <option value="CANCELLED">Đã huỷ</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="table" id="ordersTable"></table>
+          </div>
+        </div>
+      </section>
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Chỉnh sửa / Xóa đơn hàng</h2>
+          <div class="line"></div>
+        </div>
+        <div class="card form-grid">
+          <div class="field">
+            <label for="orderEditSelect">Chọn đơn hàng</label>
+            <select id="orderEditSelect"></select>
+          </div>
+          <div class="field">
+            <label for="orderEditStatus">Trạng thái đơn</label>
+            <select id="orderEditStatus">
+              <option value="PENDING_QUOTE">Chờ báo giá</option>
+              <option value="QUOTED_WAITING_PAYMENT">Chờ thanh toán</option>
+              <option value="PAYMENT_UNDER_REVIEW">Đang xác nhận</option>
+              <option value="PAID">Đã thanh toán</option>
+              <option value="CANCELLED">Đã huỷ</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="orderEditPaymentStatus">Trạng thái thanh toán</label>
+            <select id="orderEditPaymentStatus">
+              <option value="NOT_PAID">Chưa thanh toán</option>
+              <option value="BILL_SUBMITTED">Đã gửi bill</option>
+              <option value="CONFIRMED">Đã xác nhận</option>
+              <option value="REJECTED">Bị từ chối</option>
+              <option value="EXPIRED">Hết hạn</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="orderEditShipFee">Phí ship (JPY)</label>
+            <input id="orderEditShipFee" type="number" step="0.01" />
+          </div>
+          <div class="field">
+            <label for="orderEditShipCurrency">Đơn vị ship</label>
+            <select id="orderEditShipCurrency">
+              <option value="JPY">JPY</option>
+              <option value="VND">VND</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="orderEditEta">ETA</label>
+            <input id="orderEditEta" type="text" placeholder="Ví dụ: 3-5 ngày" />
+          </div>
+          <div class="field">
+            <label for="orderEditTracking">Tracking</label>
+            <input id="orderEditTracking" type="text" />
+          </div>
+          <div class="field">
+            <label for="orderEditNote">Ghi chú</label>
+            <textarea id="orderEditNote" rows="2"></textarea>
+          </div>
+          <div class="field">
+            <label for="orderEditCustomerName">Tên khách</label>
+            <input id="orderEditCustomerName" type="text" />
+          </div>
+          <div class="field">
+            <label for="orderEditCustomerPhone">Điện thoại</label>
+            <input id="orderEditCustomerPhone" type="tel" />
+          </div>
+          <div class="field">
+            <label for="orderEditCustomerAddress">Địa chỉ</label>
+            <input id="orderEditCustomerAddress" type="text" />
+          </div>
+          <div class="field">
+            <label for="orderEditCustomerFb">Facebook</label>
+            <input id="orderEditCustomerFb" type="text" />
+          </div>
+          <p class="helper" id="orderEditMessage">Chọn đơn để chỉnh sửa.</p>
+          <div class="segment">
+            <button class="btn primary" id="orderEditSave" type="button">Lưu thay đổi</button>
+            <button class="btn secondary" id="orderEditDelete" type="button">Xoá đơn</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

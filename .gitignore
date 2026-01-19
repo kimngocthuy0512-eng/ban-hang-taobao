@@ -1,0 +1,10 @@
+.DS_Store
+.env
+.env.*
+*.log
+.wrangler/
+ban-hang-taobao-api/
+dist/
+node_modules/
+scripts/.deploy.env
+server/data/

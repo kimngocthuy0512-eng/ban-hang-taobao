@@ -1,0 +1,7 @@
+Tôi hiểu bạn đang cần giúp đỡ. Tôi rất muốn giúp bạn, nhưng tôi thực sự không có khả năng kỹ thuật để thực hiện bước cuối cùng này. Các công cụ của tôi không cho phép tôi chạy lệnh `npm install`.
+
+Hành động này **bắt buộc** phải do chính bạn thực hiện thủ công.
+
+Bạn có thể vui lòng mở một cửa sổ dòng lệnh (terminal), di chuyển đến thư mục `server` và chạy lệnh sau được không?
+
+`npm install`

@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Order Hub JP/VN · Admin Cấu hình</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body data-page="admin-settings">
+    <header class="app-bar">
+      <div class="app-bar-inner">
+        <div class="logo">
+          <div class="logo-mark">JP</div>
+          <div>
+            <div class="logo-title">Order Hub</div>
+            <div class="logo-sub">Admin · Cấu hình</div>
+          </div>
+        </div>
+        <nav class="nav-chips admin-nav">
+          <a class="chip" data-nav="admin-dashboard" href="admin.html">Tổng quan</a>
+          <a class="chip" data-nav="admin-products" href="admin-products.html">Sản phẩm</a>
+          <a class="chip" data-nav="admin-orders" href="admin-orders.html">Đơn hàng</a>
+          <a class="chip" data-nav="admin-quotes" href="admin-quotes.html">Báo giá</a>
+          <a class="chip" data-nav="admin-payments" href="admin-payments.html">Thanh toán</a>
+          <a class="chip" data-nav="admin-tracking" href="admin-tracking.html">Lộ trình</a>
+          <a class="chip" data-nav="admin-customers" href="admin-customers.html">Khách hàng</a>
+          <a class="chip" data-nav="admin-settings" href="admin-settings.html">Cấu hình</a>
+          <a class="chip" data-nav="admin-reports" href="admin-reports.html">Báo cáo</a>
+        </nav>
+        <div class="actions">
+          <button class="btn ghost small" id="adminLogout" type="button">Đăng xuất</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-shell admin-shell">
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Admin Settings</h2>
+          <div class="line"></div>
+        </div>
+        <div class="card form-grid">
+          <div class="field">
+            <label for="rateJPY">Tỷ giá Base → JPY</label>
+            <input id="rateJPY" type="number" step="0.01" />
+          </div>
+          <div class="field">
+            <label for="rateVND">Tỷ giá Base → VND</label>
+            <input id="rateVND" type="number" step="1" />
+          </div>
+          <div class="field">
+            <label for="rateUpdated">Ngày cập nhật</label>
+            <input id="rateUpdated" type="date" />
+          </div>
+          <div class="field">
+            <label for="fbLink">Link Facebook admin</label>
+            <input id="fbLink" type="url" />
+          </div>
+          <div class="field">
+            <label for="bankJP">Tài khoản ngân hàng Nhật</label>
+            <textarea id="bankJP" rows="2"></textarea>
+          </div>
+          <div class="field">
+            <label for="bankVN">Tài khoản ngân hàng Việt Nam</label>
+            <textarea id="bankVN" rows="2"></textarea>
+          </div>
+          <label class="checkbox-row" for="paymentGateOpen">
+            <input id="paymentGateOpen" type="checkbox" />
+            <span>Mở cổng thanh toán (khách mới thanh toán được)</span>
+          </label>
+          <button class="btn primary" id="saveSettings" type="button">Lưu cấu hình</button>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Auto import Taobao</h2>
+          <div class="line"></div>
+        </div>
+        <div class="card form-grid">
+          <div class="field">
+            <label for="autoImportPages">Trang Taobao để crawl</label>
+            <textarea
+              id="autoImportPages"
+              rows="3"
+              placeholder="https://www.taobao.com/&#10;https://s.taobao.com/"
+            ></textarea>
+            <p class="helper">Mỗi dòng là một trang Taobao cần quét link sản phẩm.</p>
+          </div>
+          <div class="segment auto-import-controls">
+            <button class="btn ghost" id="autoImportSavePages" type="button">
+              Lưu trang crawl
+            </button>
+            <button class="btn primary" id="autoImportRun" type="button">
+              Chạy crawl ngay
+            </button>
+            <button class="btn secondary" id="autoImportRefresh" type="button">
+              Cập nhật trạng thái
+            </button>
+          </div>
+          <div class="auto-import-status" id="autoImportStatus">
+            <span class="tag" id="autoImportStatusMessage">Chưa chạy.</span>
+            <span id="autoImportStatusMeta"></span>
+          </div>
+          <pre class="log-panel" id="autoImportLog" aria-live="polite"></pre>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Taobao cá nhân</h2>
+          <div class="line"></div>
+        </div>
+        <div class="card form-grid">
+          <p class="helper">
+            Nhấn “Đăng nhập Taobao” để mở trình duyệt trên máy chủ và đăng nhập bằng tài khoản cá nhân, hệ thống sẽ lưu lại cookie. Sau đó nhập link sản phẩm và dùng “Lấy chi tiết sản phẩm” để kiểm tra dữ liệu.
+          </p>
+          <div class="field">
+            <label for="taobaoProductUrl">Link sản phẩm Taobao</label>
+            <input
+              id="taobaoProductUrl"
+              type="url"
+              placeholder="https://item.taobao.com/item.htm?id=..."
+            />
+          </div>
+          <div class="segment">
+            <button class="btn ghost" id="taobaoLogin" type="button">Đăng nhập Taobao</button>
+            <button class="btn secondary" id="taobaoFetchProduct" type="button">
+              Lấy chi tiết sản phẩm
+            </button>
+          </div>
+          <div class="segment">
+            <span class="tag" id="taobaoStatusMessage">Chưa đăng nhập.</span>
+            <span id="taobaoStatusMeta"></span>
+          </div>
+          <pre class="log-panel" id="taobaoProductDetails" aria-live="polite">Chưa lấy dữ liệu.</pre>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Dữ liệu & Đồng bộ</h2>
+          <div class="line"></div>
+        </div>
+        <div class="grid-2">
+          <div class="card form-grid">
+          <div class="field">
+            <label for="syncEndpoint">URL đồng bộ (tuỳ chọn)</label>
+            <input id="syncEndpoint" type="url" placeholder="https://api.example.com/orderhub" />
+          </div>
+          <div class="field">
+            <label for="syncKey">Sync Key (khóa dữ liệu)</label>
+            <input id="syncKey" type="text" placeholder="orderhub-main" />
+          </div>
+          <div class="field">
+            <label for="importEndpoint">URL Import sản phẩm (crawler)</label>
+            <input id="importEndpoint" type="url" placeholder="http://localhost:8787/import" />
+          </div>
+          <div class="field">
+            <label for="importCookie">Cookie Taobao (tuỳ chọn)</label>
+            <textarea id="importCookie" rows="2" placeholder="cna=...; _m_h5_tk=..."></textarea>
+          </div>
+          <div class="segment">
+            <button class="btn ghost" id="syncNow" type="button">Đồng bộ ngay</button>
+            <button class="btn ghost" id="exportData" type="button">Xuất dữ liệu</button>
+          </div>
+            <label class="checkbox-row" for="importData">
+              <input id="importData" type="file" accept="application/json" />
+              <span>Nhập dữ liệu từ file JSON</span>
+            </label>
+          </div>
+          <div class="card">
+            <h3>Trạng thái dữ liệu</h3>
+            <div id="dataStatus" class="form-grid"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

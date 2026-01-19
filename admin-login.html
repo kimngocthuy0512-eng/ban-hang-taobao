@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Order Hub JP/VN · Admin Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body data-page="admin-login">
+    <header class="app-bar">
+      <div class="app-bar-inner">
+        <div class="logo">
+          <div class="logo-mark">JP</div>
+          <div>
+            <div class="logo-title">Order Hub</div>
+            <div class="logo-sub">Admin Access</div>
+          </div>
+        </div>
+        <nav class="nav-chips">
+          <a class="chip" href="index.html">Về trang chủ</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Đăng nhập Admin</h2>
+          <div class="line"></div>
+        </div>
+        <div class="grid-2">
+          <div class="card form-grid">
+            <div class="field">
+              <label for="adminUser">Username</label>
+              <input id="adminUser" type="text" />
+            </div>
+            <div class="field">
+              <label for="adminPass">Password</label>
+              <input id="adminPass" type="password" />
+            </div>
+            <button class="btn primary" id="adminLoginBtn" type="button">Đăng nhập</button>
+            <p class="badge" id="loginHint">Rate limit: 5 lần sai / 30s.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Order Hub JP/VN · Tra cứu thanh toán</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body data-page="payment">
+    <header class="app-bar">
+      <div class="app-bar-inner">
+        <div class="logo">
+          <div class="logo-mark">JP</div>
+          <div>
+            <div class="logo-title">Order Hub</div>
+            <div class="logo-sub">Tra cứu thanh toán</div>
+          </div>
+        </div>
+        <nav class="nav-chips">
+          <a class="chip" data-nav="home" href="index.html">Trang chủ</a>
+          <a class="chip" data-nav="shop" href="shop.html">Cửa hàng</a>
+          <a class="chip" data-nav="product" href="product.html">Chi tiết</a>
+          <a class="chip" data-nav="cart" href="cart.html">Giỏ hàng</a>
+          <a class="chip" data-nav="checkout" href="checkout.html">Đặt hàng</a>
+          <a class="chip" data-nav="payment" href="payment.html">Thanh toán</a>
+        </nav>
+        <div class="actions">
+          <a class="btn ghost small" href="cart.html">Giỏ (<span data-cart-count>0</span>)</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Nhập mã thanh toán</h2>
+          <div class="line"></div>
+        </div>
+        <div class="stepper">
+          <div class="step">1. Tạo đơn</div>
+          <div class="step">2. Báo giá ship</div>
+          <div class="step active">3. Thanh toán</div>
+        </div>
+        <p>Mã thanh toán chính là mã đơn hàng (Order Code) do admin gửi sau khi báo giá.</p>
+        <div class="card form-grid">
+          <div class="field">
+            <label for="paymentCode">Nhập mã đơn hàng</label>
+            <input id="paymentCode" type="text" placeholder="VD: DH2026-000001" />
+          </div>
+          <button class="btn primary" id="paymentLookup" type="button">Tra cứu thanh toán</button>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Kết quả tra cứu</h2>
+          <div class="line"></div>
+        </div>
+        <div id="paymentResult"></div>
+      </section>
+    </main>
+
+    <a class="emergency" data-emergency href="#">Liên hệ khẩn cấp</a>
+
+    <nav class="bottom-nav">
+      <a data-nav="home" href="index.html">Home</a>
+      <a data-nav="shop" href="shop.html">Shop</a>
+      <a data-nav="cart" href="cart.html">Cart (<span data-cart-count>0</span>)</a>
+      <a data-nav="payment" href="payment.html">Pay</a>
+    </nav>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <div>
+          <h3>Liên hệ</h3>
+          <p>Hotline: 0900-888-123</p>
+          <p>Email: support@orderhub.vn</p>
+        </div>
+        <div>
+          <h3>Chính sách</h3>
+          <p>Đổi trả 7 ngày</p>
+          <p>Hỗ trợ báo giá ship trong 24h</p>
+        </div>
+        <div class="footer-cat">
+          <button class="cat-btn" data-admin-cat type="button" aria-label="Admin">=^.^=</button>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,8 @@
+name = "ban-hang-taobao-api"
+main = "src/index.js"
+compatibility_date = "2026-01-12"
+
+kv_namespaces = [
+  { binding = "SYNC_KV", id = "209bd7aec8db40b1b1d8655cea2be184" },
+  { binding = "MEDIA_KV", id = "d3fc59fa27c540a9abb35c753ee43e55" }
+]

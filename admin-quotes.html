@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Order Hub JP/VN · Admin Báo giá</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body data-page="admin-quotes">
+    <header class="app-bar">
+      <div class="app-bar-inner">
+        <div class="logo">
+          <div class="logo-mark">JP</div>
+          <div>
+            <div class="logo-title">Order Hub</div>
+            <div class="logo-sub">Admin · Báo giá</div>
+          </div>
+        </div>
+        <nav class="nav-chips admin-nav">
+          <a class="chip" data-nav="admin-dashboard" href="admin.html">Tổng quan</a>
+          <a class="chip" data-nav="admin-products" href="admin-products.html">Sản phẩm</a>
+          <a class="chip" data-nav="admin-orders" href="admin-orders.html">Đơn hàng</a>
+          <a class="chip" data-nav="admin-quotes" href="admin-quotes.html">Báo giá</a>
+          <a class="chip" data-nav="admin-payments" href="admin-payments.html">Thanh toán</a>
+          <a class="chip" data-nav="admin-tracking" href="admin-tracking.html">Lộ trình</a>
+          <a class="chip" data-nav="admin-customers" href="admin-customers.html">Khách hàng</a>
+          <a class="chip" data-nav="admin-settings" href="admin-settings.html">Cấu hình</a>
+          <a class="chip" data-nav="admin-reports" href="admin-reports.html">Báo cáo</a>
+        </nav>
+        <div class="actions">
+          <button class="btn ghost small" id="adminLogout" type="button">Đăng xuất</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-shell admin-shell">
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Báo giá ship + tổng</h2>
+          <div class="line"></div>
+        </div>
+        <div class="grid-2">
+          <div class="card form-grid">
+            <div class="field">
+              <label for="orderSelect">Chọn đơn</label>
+              <select id="orderSelect"></select>
+            </div>
+            <div class="field">
+              <label for="shipFee">Phí ship (JPY)</label>
+              <input id="shipFee" type="number" step="1" />
+            </div>
+            <div class="field">
+              <label for="shipCurrency">Đơn vị phí ship</label>
+              <input id="shipCurrency" type="text" value="JPY" readonly />
+            </div>
+            <div class="field">
+              <label for="quoteNote">Ghi chú</label>
+              <textarea id="quoteNote" rows="2"></textarea>
+            </div>
+            <div class="segment">
+              <button class="btn primary" id="applyQuote" type="button">Xác nhận báo giá</button>
+              <button class="btn ghost" id="regenCode" type="button">Gia hạn mã thanh toán</button>
+            </div>
+          </div>
+          <div class="card form-grid">
+            <h3>Tổng hợp báo giá</h3>
+            <div id="adminQuoteSummary" class="form-grid"></div>
+            <h4>Danh sách sản phẩm</h4>
+            <div id="adminOrderItems" class="form-grid"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

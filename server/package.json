@@ -1,0 +1,16 @@
+{
+  "name": "orderhub-importer",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "playwright": "^1.49.0"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "import:taobao": "node scripts/taobao-playwright-import.js",
+    "import:taobao:home": "TAOBAO_CRAWL=1 node scripts/taobao-playwright-import.js"
+  }
+}

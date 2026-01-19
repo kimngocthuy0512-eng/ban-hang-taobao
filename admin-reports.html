@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Order Hub JP/VN · Admin Báo cáo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body data-page="admin-reports">
+    <header class="app-bar">
+      <div class="app-bar-inner">
+        <div class="logo">
+          <div class="logo-mark">JP</div>
+          <div>
+            <div class="logo-title">Order Hub</div>
+            <div class="logo-sub">Admin · Báo cáo</div>
+          </div>
+        </div>
+        <nav class="nav-chips admin-nav">
+          <a class="chip" data-nav="admin-dashboard" href="admin.html">Tổng quan</a>
+          <a class="chip" data-nav="admin-products" href="admin-products.html">Sản phẩm</a>
+          <a class="chip" data-nav="admin-orders" href="admin-orders.html">Đơn hàng</a>
+          <a class="chip" data-nav="admin-quotes" href="admin-quotes.html">Báo giá</a>
+          <a class="chip" data-nav="admin-payments" href="admin-payments.html">Thanh toán</a>
+          <a class="chip" data-nav="admin-tracking" href="admin-tracking.html">Lộ trình</a>
+          <a class="chip" data-nav="admin-customers" href="admin-customers.html">Khách hàng</a>
+          <a class="chip" data-nav="admin-settings" href="admin-settings.html">Cấu hình</a>
+          <a class="chip" data-nav="admin-reports" href="admin-reports.html">Báo cáo</a>
+        </nav>
+        <div class="actions">
+          <button class="btn ghost small" id="adminLogout" type="button">Đăng xuất</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-shell admin-shell">
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Báo cáo doanh thu</h2>
+          <div class="line"></div>
+        </div>
+        <div class="card form-grid">
+          <div id="revenueSummary"></div>
+          <button class="btn ghost" id="exportReport" type="button">Xuất Excel (demo)</button>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

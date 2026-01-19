@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Order Hub JP/VN · Admin Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body data-page="admin-dashboard">
+    <header class="app-bar">
+      <div class="app-bar-inner">
+        <div class="logo">
+          <div class="logo-mark">JP</div>
+          <div>
+            <div class="logo-title">Order Hub</div>
+            <div class="logo-sub">Admin Dashboard</div>
+          </div>
+        </div>
+        <nav class="nav-chips admin-nav">
+          <a class="chip" data-nav="admin-dashboard" href="admin.html">Tổng quan</a>
+          <a class="chip" data-nav="admin-products" href="admin-products.html">Sản phẩm</a>
+          <a class="chip" data-nav="admin-orders" href="admin-orders.html">Đơn hàng</a>
+          <a class="chip" data-nav="admin-quotes" href="admin-quotes.html">Báo giá</a>
+          <a class="chip" data-nav="admin-payments" href="admin-payments.html">Thanh toán</a>
+          <a class="chip" data-nav="admin-tracking" href="admin-tracking.html">Lộ trình</a>
+          <a class="chip" data-nav="admin-customers" href="admin-customers.html">Khách hàng</a>
+          <a class="chip" data-nav="admin-settings" href="admin-settings.html">Cấu hình</a>
+          <a class="chip" data-nav="admin-reports" href="admin-reports.html">Báo cáo</a>
+        </nav>
+        <div class="actions">
+          <button class="btn ghost small" id="adminLogout" type="button">Đăng xuất</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-shell admin-shell">
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Tổng quan trạng thái</h2>
+          <div class="line"></div>
+        </div>
+        <div class="grid-3" id="statusStats"></div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Lối tắt quản trị</h2>
+          <div class="line"></div>
+        </div>
+        <div class="card-grid admin-quick">
+          <a class="card admin-link" href="admin-products.html">
+            <h3>Sản phẩm</h3>
+            <p>Danh sách + chỉnh sửa nhanh.</p>
+          </a>
+          <a class="card admin-link" href="admin-orders.html">
+            <h3>Đơn hàng</h3>
+            <p>Danh sách + lọc trạng thái.</p>
+          </a>
+          <a class="card admin-link" href="admin-quotes.html">
+            <h3>Báo giá</h3>
+            <p>Tính ship + kích hoạt mã thanh toán (mã đơn).</p>
+          </a>
+          <a class="card admin-link" href="admin-payments.html">
+            <h3>Thanh toán</h3>
+            <p>Xác nhận bill + cập nhật trạng thái.</p>
+          </a>
+          <a class="card admin-link" href="admin-tracking.html">
+            <h3>Lộ trình</h3>
+            <p>Cập nhật ETA và trạng thái giao.</p>
+          </a>
+          <a class="card admin-link" href="admin-settings.html">
+            <h3>Cấu hình</h3>
+            <p>Tỷ giá + đồng bộ dữ liệu.</p>
+          </a>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
