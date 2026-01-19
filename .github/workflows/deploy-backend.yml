@@ -22,12 +22,13 @@ jobs:
         run: npm ci
 
       - name: Deploy via Render CLI
-        env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
-        run: |
-          npm install -g render
-          render deploy --service-id "${RENDER_SERVICE_ID}" --wait --production
+  env:
+    RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+    RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+  run: |
+    npm install -g render
+    render deploy --service-id "${RENDER_SERVICE_ID}" --wait --production
+
 - name: Install dependencies
   run: npm install
   working-directory: server
