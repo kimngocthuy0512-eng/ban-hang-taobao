@@ -1450,10 +1450,18 @@
     `;
   };
 
-  const buildProductCard = (product, settings) => {
-    const price = convertPrice(product.basePrice, settings);
-    const baseWithFee = applyProductFee(product.basePrice);
-    const wished = isWishlisted(product.id);
+    const getDisplayName = (product) => {
+      if (!product) return "Sản phẩm";
+      const original = (product.name || "").trim();
+      if (!original) return "Sản phẩm";
+      const stripped = original.replace(/-淘宝网.*$/i, "").trim();
+      return stripped.split("·")[0].split("·")[0];
+    };
+
+    const buildProductCard = (product, settings) => {
+      const price = convertPrice(product.basePrice, settings);
+      const baseWithFee = applyProductFee(product.basePrice);
+      const wished = isWishlisted(product.id);
     const tags = (product.tags || []).map((tag) => `<span class="tag">${tag}</span>`).join("");
     const source = sourceLabel(product.source || "web");
     const tagRow = `
@@ -1481,7 +1489,7 @@
         <div class="product-thumb"${thumbStyle}>${thumbContent}</div>
         <div class="product-meta">
           ${tagRow}
-          <h3 class="product-title">${product.name}</h3>
+        <h3 class="product-title">${getDisplayName(product)}</h3>
           ${descMarkup}
           <div class="price">
             <strong>${formatCurrency(baseWithFee, settings.baseCurrency)}</strong>
