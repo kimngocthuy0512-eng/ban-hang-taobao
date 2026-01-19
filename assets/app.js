@@ -2869,6 +2869,92 @@
     `;
   };
 
+  const fetchAutoImportStatusPayload = async () => {
+    const settings = getSettings();
+    const endpoint = buildAutoImportUrl(settings, "/auto-import/status");
+    if (!endpoint) return null;
+    try {
+      const response = await fetch(endpoint, {
+        cache: "no-store",
+        headers: settings.apiKey ? { "x-api-key": settings.apiKey } : {},
+      });
+      ensureImporterSupported(response, "Không lấy được trạng thái auto import.");
+      return await response.json();
+    } catch (error) {
+      console.warn("Auto import status unavailable:", error);
+      return null;
+    }
+  };
+
+  const createAdminInsightCard = ({ value, label, hint }) => `
+    <div class="card soft admin-insight-card">
+      <strong>${escapeHtml(value)}</strong>
+      <p>${escapeHtml(label)}</p>
+      ${hint ? `<span class="hint">${escapeHtml(hint)}</span>` : ""}
+    </div>
+  `;
+
+  const renderAdminInsights = async (container) => {
+    if (!container) return;
+    const placeholder = `<div class="card soft admin-insight-card"><p>Đang thu thập dữ liệu...</p></div>`;
+    container.innerHTML = placeholder;
+    const settings = getSettings();
+    const orders = getOrders();
+    const products = getProducts();
+    const visibleProducts = getVisibleProducts().length;
+    const snapshot = getSnapshot();
+    const orderCount = orders.length;
+    const totalRevenueVND = orders.reduce((sum, order) => {
+      const totals = computeTotals(order, settings, products);
+      return sum + (totals.totalVND || 0);
+    }, 0);
+    const paidOrders = orders.filter((order) => order.paymentStatus === PAYMENT_STATUS.CONFIRMED);
+    const syncTimestamp = snapshot?.meta?.updatedAt || settings.lastSync;
+    const autoImportPayload = await fetchAutoImportStatusPayload();
+    const autoState = autoImportPayload?.state || {};
+    const autoStatusLabel = autoState.running ? "Đang chạy" : "Tạm dừng";
+    const autoStatusHint = autoState.message
+      ? autoState.message
+      : autoImportPayload
+      ? "Sẵn sàng"
+      : "Chưa khởi tạo";
+    const autoLogSnippet = autoImportPayload?.log
+      ? autoImportPayload.log.split("\n").slice(-2).join(" / ")
+      : "";
+    const syncDisplay = syncTimestamp ? formatDateTime(syncTimestamp) : "Chưa sync";
+    const syncHint = snapshot?.meta?.updatedAt
+      ? `Đã cập nhật ${formatNumber(snapshot.products?.length || 0)} sản phẩm`
+      : "Chưa đồng bộ";
+    const cards = [
+      {
+        value: formatNumber(orderCount),
+        label: "Tổng đơn hàng",
+        hint: `${formatNumber(paidOrders.length)} đơn đã thanh toán`,
+      },
+      {
+        value: formatCurrency(totalRevenueVND, "VND"),
+        label: "Doanh thu ước tính (VND)",
+        hint: `${formatNumber(paidOrders.length)} đơn đã xác nhận`,
+      },
+      {
+        value: formatNumber(visibleProducts),
+        label: "Sản phẩm hiển thị",
+        hint: `${formatNumber(products.length)} mục trong kho`,
+      },
+      {
+        value: syncDisplay,
+        label: "Lần sync gần nhất",
+        hint: syncHint,
+      },
+      {
+        value: autoStatusLabel,
+        label: "Auto-import",
+        hint: [autoStatusHint, autoLogSnippet].filter(Boolean).join(" · "),
+      },
+    ];
+    container.innerHTML = cards.map(createAdminInsightCard).join("");
+  };
+
   const renderOrdersTable = (container, statusFilter = "all") => {
     if (!container) return;
     const products = getProducts();
@@ -2933,6 +3019,9 @@
     if (!requireAdminAuth()) return;
     bindAdminLogout();
     renderStatusStats(document.getElementById("statusStats"));
+    renderAdminInsights(document.getElementById("overviewStats")).catch((error) => {
+      console.error("Không thể tải thông tin tổng quan admin:", error);
+    });
   };
 
   const initAdminSettings = () => {

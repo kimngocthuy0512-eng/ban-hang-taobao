@@ -704,6 +704,34 @@ textarea {
   gap: 0.9rem;
 }
 
+.status-summary-grid {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.admin-insight-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.admin-insight-card strong {
+  font-size: 1.6rem;
+  line-height: 1.2;
+}
+
+.admin-insight-card p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.admin-insight-card .hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
 #productThumbs {
   grid-template-columns: repeat(3, 1fr);
 }
