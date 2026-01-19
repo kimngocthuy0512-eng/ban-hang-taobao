@@ -1487,14 +1487,7 @@
       const price = convertPrice(product.basePrice, settings);
       const baseWithFee = applyProductFee(product.basePrice);
       const wished = isWishlisted(product.id);
-      const tags = (product.tags || []).map((tag) => `<span class="tag">${tag}</span>`).join("");
-      const source = sourceLabel(product.source || "web");
-      const tagRow = `
-        <div class="segment product-tags">
-          <span class="badge">${source}</span>
-          ${tags}
-        </div>
-      `;
+      const tagRow = "";
       const descMarkup = product.desc ? `<p class="product-desc">${product.desc}</p>` : "";
       const palette = product.palette?.length ? product.palette : ["#2a2f45", "#374766", "#ffb347"];
       const images = getProductImages(product);
@@ -1510,9 +1503,7 @@
         <div class="product-image" data-bg-src="${heroImage}">
           <div class="product-image-gloss"></div>
           <div class="product-meta-overlay">
-            ${tagRow}
             <h3 class="product-title">${getDisplayName(product)}</h3>
-            ${overlayDesc}
             <div class="price">
               <strong>${formatCurrency(baseWithFee, settings.baseCurrency)}</strong>
               <span>JPY ${formatNumber(price.jpy)}</span>
