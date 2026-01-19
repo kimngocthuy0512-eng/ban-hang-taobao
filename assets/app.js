@@ -936,8 +936,7 @@
     const localSnapshot = buildSyncSnapshot();
     let remoteSnapshot = null;
     const headers = { Accept: "application/json" };
-    // Always send x-api-key, let the backend handle validation (e.g., 401 if empty/incorrect)
-    headers["x-api-key"] = settings.apiKey || "";
+    if (settings.apiKey) headers["x-api-key"] = settings.apiKey;
     try {
       const response = await fetch(endpoint, { headers });
       if (response.ok) remoteSnapshot = unwrapSyncPayload(await response.json());
@@ -1745,9 +1744,11 @@
           log: "",
         },
       });
+      const autoImportHeaders = {};
+      if (settings.apiKey) autoImportHeaders["x-api-key"] = settings.apiKey;
       const response = await fetch(url, {
         method: "POST",
-        headers: { "x-api-key": settings.apiKey },
+        headers: autoImportHeaders,
       });
       ensureImporterSupported(response);
       pollAutoImportStatus();
