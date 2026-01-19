@@ -1504,11 +1504,7 @@
           <div class="product-image-gloss"></div>
           <div class="product-meta-overlay">
             <h3 class="product-title">${getDisplayName(product)}</h3>
-            <div class="price">
-              <strong>${formatCurrency(baseWithFee, settings.baseCurrency)}</strong>
-              <span>JPY ${formatNumber(price.jpy)}</span>
-              <span>VND ${formatNumber(price.vnd)}</span>
-            </div>
+            <div class="price price-main">${formatCurrency(baseWithFee, settings.baseCurrency)}</div>
           </div>
         </div>
       </article>

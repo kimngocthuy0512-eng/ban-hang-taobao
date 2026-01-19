@@ -878,6 +878,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
+  align-items: center;
 }
 
 .product-meta-overlay .product-title {
@@ -896,8 +897,10 @@ textarea {
   color: rgba(255, 255, 255, 0.8);
 }
 
-.product-meta-overlay .product-desc {
-  display: none;
+.product-meta-overlay .price-main {
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: center;
 }
 
 .wish-btn svg {
