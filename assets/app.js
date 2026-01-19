@@ -1464,9 +1464,9 @@
             entries.forEach((entry) => {
               if (!entry.isIntersecting) return;
               const thumb = entry.target;
-              const src = thumb.dataset.bgSrc;
+              const src = thumb.dataset.src;
               if (src) {
-                thumb.style.backgroundImage = `url("${src}")`;
+                thumb.src = src;
                 thumb.dataset.loaded = "true";
               }
               lazyThumbObserver.unobserve(thumb);
@@ -1476,10 +1476,10 @@
 
     const registerLazyThumbs = (container) => {
       if (!container || !lazyThumbObserver) return;
-      container.querySelectorAll(".product-image").forEach((thumb) => {
-        if (thumb.dataset.lazyBound === "true") return;
-        thumb.dataset.lazyBound = "true";
-        if (thumb.dataset.bgSrc) lazyThumbObserver.observe(thumb);
+      container.querySelectorAll(".product-image-inner").forEach((img) => {
+        if (img.dataset.lazyBound === "true" || !img.dataset.src) return;
+        img.dataset.lazyBound = "true";
+        lazyThumbObserver.observe(img);
       });
     };
 
@@ -1500,7 +1500,8 @@
             <path d="M12 21s-6.7-4.4-9.3-8.2C.6 9.4 2.2 5.8 5.7 5.1c2-.4 3.8.3 5 1.8 1.2-1.5 3-2.2 5-1.8 3.5.7 5.1 4.3 3 7.7C18.7 16.6 12 21 12 21z"></path>
           </svg>
         </button>
-        <div class="product-image" data-bg-src="${heroImage}">
+        <div class="product-image">
+          <img class="product-image-inner" data-src="${heroImage}" alt="${getDisplayName(product)}" />
           <div class="product-image-gloss"></div>
           <div class="product-meta-overlay">
             <h3 class="product-title">${getDisplayName(product)}</h3>
