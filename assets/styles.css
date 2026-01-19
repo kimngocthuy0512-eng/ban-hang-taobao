@@ -822,6 +822,11 @@ textarea {
   box-shadow: 0 15px 30px rgba(0, 0, 0, 0.12);
 }
 
+.product-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 35px 60px rgba(0, 0, 0, 0.25), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
 .product-card.is-wish {
   border-color: rgba(255, 179, 71, 0.55);
   box-shadow: 0 18px 32px rgba(0, 0, 0, 0.4);
@@ -842,6 +847,52 @@ textarea {
   color: var(--muted);
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+.product-image {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: calc(var(--radius) * 0.8);
+  overflow: hidden;
+  background: linear-gradient(140deg, rgba(242, 180, 81, 0.3), rgba(82, 192, 169, 0.2));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.product-image-gloss {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent);
+  pointer-events: none;
+}
+
+.product-meta-overlay {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  padding: 0.5rem 0.65rem;
+  background: rgba(22, 24, 27, 0.55);
+  backdrop-filter: blur(14px);
+  color: rgba(255, 255, 255, 0.92);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.product-meta-overlay .product-title {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.product-meta-overlay .price {
+  font-size: 0.85rem;
+  gap: 0.35rem;
+}
+
+.product-meta-overlay .product-desc {
+  display: none;
 }
 
 .wish-btn svg {
@@ -976,6 +1027,18 @@ textarea {
   filter: brightness(0.85);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
   overflow: hidden;
+}
+
+.product-compact-thumb::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.35), transparent 60%);
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
 }
 
 .product-compact-thumb::after {

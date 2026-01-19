@@ -1476,7 +1476,7 @@
 
     const registerLazyThumbs = (container) => {
       if (!container || !lazyThumbObserver) return;
-      container.querySelectorAll(".product-compact-thumb").forEach((thumb) => {
+      container.querySelectorAll(".product-image").forEach((thumb) => {
         if (thumb.dataset.lazyBound === "true") return;
         thumb.dataset.lazyBound = "true";
         if (thumb.dataset.bgSrc) lazyThumbObserver.observe(thumb);
@@ -1499,9 +1499,7 @@
       const palette = product.palette?.length ? product.palette : ["#2a2f45", "#374766", "#ffb347"];
       const images = getProductImages(product);
       const heroImage = images[0] || "";
-      const thumbnailStyle = heroImage
-        ? ""
-        : `background: linear-gradient(140deg, ${palette.join(", ")});`;
+      const overlayDesc = descMarkup ? `<p class="product-desc">${descMarkup}</p>` : "";
       return `
       <article class="card product-card ${wished ? "is-wish" : ""}" data-product-card data-id="${product.id}" tabindex="0">
         <button class="wish-btn ${wished ? "active" : ""}" type="button" data-wish="${product.id}" aria-pressed="${wished}" aria-label="${wished ? "Bỏ lưu" : "Lưu"}">
@@ -1509,14 +1507,12 @@
             <path d="M12 21s-6.7-4.4-9.3-8.2C.6 9.4 2.2 5.8 5.7 5.1c2-.4 3.8.3 5 1.8 1.2-1.5 3-2.2 5-1.8 3.5.7 5.1 4.3 3 7.7C18.7 16.6 12 21 12 21z"></path>
           </svg>
         </button>
-        <div class="product-compact-layout">
-          <div class="product-compact-thumb" style="${thumbnailStyle}" data-bg-src="${heroImage}">
-            <span class="product-compact-badge">Hình nổi bật</span>
-          </div>
-          <div class="product-compact-meta">
+        <div class="product-image" data-bg-src="${heroImage}">
+          <div class="product-image-gloss"></div>
+          <div class="product-meta-overlay">
             ${tagRow}
             <h3 class="product-title">${getDisplayName(product)}</h3>
-            ${descMarkup}
+            ${overlayDesc}
             <div class="price">
               <strong>${formatCurrency(baseWithFee, settings.baseCurrency)}</strong>
               <span>JPY ${formatNumber(price.jpy)}</span>
@@ -1526,7 +1522,7 @@
         </div>
       </article>
     `;
-  };
+    };
 
   const renderProductGrid = (products, container, mode = "grid", append = false, nextOffset = 0) => {
     if (!container) return;
