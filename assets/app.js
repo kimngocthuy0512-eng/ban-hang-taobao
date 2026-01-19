@@ -1533,6 +1533,30 @@
     bindWishlistToggle(container);
   };
 
+  const SYNC_WARNING_ID = "shopSyncWarning";
+
+  const renderSyncWarning = (section, message) => {
+    if (!section || !message) return;
+    let notice = document.getElementById(SYNC_WARNING_ID);
+    if (!notice) {
+      notice = document.createElement("div");
+      notice.id = SYNC_WARNING_ID;
+      notice.className = "card sync-warning";
+      const header = section.querySelector(".section-header");
+      if (header) {
+        header.insertAdjacentElement("afterend", notice);
+      } else {
+        section.prepend(notice);
+      }
+    }
+    notice.innerHTML = `<strong>Đồng bộ thất bại</strong><p>${message}</p>`;
+  };
+
+  const clearSyncWarning = () => {
+    const existing = document.getElementById(SYNC_WARNING_ID);
+    if (existing) existing.remove();
+  };
+
   const setupInfiniteScroll = (container, allProducts, renderCallback) => {
     let intersectionObserver = null;
     const loadMore = (entries, observer) => {
@@ -1742,8 +1766,12 @@
 
 
   const initShop = async () => {
-    // Show a loading indicator while syncing
     const grid = document.getElementById("shopGrid");
+    const productSection = grid?.closest(".section");
+    const syncWarningMessage =
+      "Không thể kết nối backend để lấy dữ liệu sản phẩm. Hiển thị catalog mẫu và kiểm tra cài đặt Sync/Render.";
+    let syncFailed = false;
+    clearSyncWarning();
     if (grid) {
       grid.innerHTML = '<div class="card empty-state">Đang tải sản phẩm từ server...</div>';
     }
@@ -1752,11 +1780,11 @@
       await performSync({ reason: "initShop", silent: true });
     } catch (error) {
       console.error("Error performing sync in initShop:", error);
-      // Optionally, display an error message to the user
-      if (grid) {
-        grid.innerHTML = '<div class="card empty-state">Không thể tải sản phẩm. Vui lòng thử lại sau.</div>';
-      }
-      return; // Stop initialization if sync fails critically
+      syncFailed = true;
+      renderSyncWarning(productSection, syncWarningMessage);
+    }
+    if (!syncFailed) {
+      clearSyncWarning();
     }
     const searchInput = document.getElementById("shopSearch");
     const priceMin = document.getElementById("priceMin");
