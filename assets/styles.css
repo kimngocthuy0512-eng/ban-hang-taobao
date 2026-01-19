@@ -809,14 +809,17 @@ textarea {
 }
 
 .product-card {
-  border: none;
-  background: transparent;
-  padding: 0;
-  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.85);
+  padding: 0.65rem;
+  border-radius: var(--radius);
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  aspect-ratio: 1 / 1;
+  min-height: 130px;
+  aspect-ratio: auto;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.12);
 }
 
 .product-card.is-wish {
@@ -955,6 +958,56 @@ textarea {
   position: static;
   width: 110px;
   height: 110px;
+}
+
+.product-compact-layout {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.product-compact-thumb {
+  position: relative;
+  flex: 0 0 95px;
+  height: 95px;
+  border-radius: calc(var(--radius) * 0.8);
+  background-size: cover;
+  background-position: center;
+  filter: brightness(0.85);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+}
+
+.product-compact-thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.45));
+}
+
+.product-compact-badge {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  position: absolute;
+  bottom: 0.35rem;
+  left: 0.35rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+
+.product-compact-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.product-compact-meta .product-title {
+  font-size: 1.05rem;
+  line-height: 1.2;
+  margin-bottom: 0.25rem;
 }
 
 .empty-state {
