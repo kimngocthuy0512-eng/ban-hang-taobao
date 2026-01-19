@@ -2188,6 +2188,7 @@
       const cart = getCart();
       const products = getProducts();
       const settings = getSettings();
+      console.log("Current Cart:", cart);
       if (!cart.length) {
         cartList.innerHTML = "<div class=\"card\">Giỏ hàng trống.</div>";
         subtotalBase.textContent = formatCurrency(0, settings.baseCurrency);

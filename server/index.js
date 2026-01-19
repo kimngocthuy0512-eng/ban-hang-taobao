@@ -416,24 +416,52 @@ const parseScriptData = (html) => {
     /'price'\s*:\s*'([0-9.]+)'/
   );
   const price = parseNumberFromText(priceText);
-  const picsMatch =
+  let picsMatch =
     html.match(/"picsPath"\s*:\s*\[([^\]]+)\]/) ||
     html.match(/'picsPath'\s*:\s*\[([^\]]+)\]/);
-  const images = [];
+  const images = new Set();
   if (picsMatch) {
     picsMatch[1]
       .split(",")
       .map((entry) => entry.trim().replace(/^"|"$/g, ""))
       .map(decodeEscapedText)
       .filter(Boolean)
-      .forEach((src) => images.push(src));
+      .forEach((src) => images.add(src));
   }
+  if (images.size === 0) {
+    picsMatch = html.match(/Hub\.config\.get\('propertyPics'\)\s*:\s*(\{[\s\S]*?\})\s*,/);
+    if (picsMatch) {
+      try {
+        const propertyPics = JSON.parse(picsMatch[1]);
+        for (const key in propertyPics) {
+          if (Array.isArray(propertyPics[key])) {
+            propertyPics[key].forEach(pic => images.add(pic));
+          }
+        }
+      } catch (e) {
+        // Ignore parsing errors
+      }
+    }
+  }
+
+  if (images.size === 0) {
+    const galleryMatch = html.match(/<div[^>]+id="J_UlThumb"[^>]*>([\s\S]+?)<\/div>/);
+    if (galleryMatch) {
+      const imageRegex = /<img[^>]+src="([^"]+)"/g;
+      let match;
+      while ((match = imageRegex.exec(galleryMatch[1])) !== null) {
+        images.add(match[1].replace(/_\d+x\d+\.jpg$/, ''));
+      }
+    }
+  }
+
+
   return {
     title,
     subtitle,
     pic,
     price,
-    images,
+    images: Array.from(images),
   };
 };
 
