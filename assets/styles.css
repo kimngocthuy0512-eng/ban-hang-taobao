@@ -1109,6 +1109,7 @@ textarea {
   box-shadow: 0 22px 40px rgba(12, 15, 25, 0.12);
   position: relative;
   overflow: hidden;
+  align-items: flex-start;
 }
 
 .order-panel::after {
@@ -1125,12 +1126,14 @@ textarea {
   justify-content: space-between;
   gap: 1rem;
   align-items: flex-start;
+  flex-wrap: wrap;
+  text-align: left;
 }
 
 .order-panel .order-price {
   display: grid;
   gap: 0.4rem;
-  justify-content: center;
+  justify-content: flex-start;
   font-size: 1.4rem;
 }
 
@@ -1144,6 +1147,7 @@ textarea {
   display: flex;
   gap: 0.8rem;
   flex-wrap: wrap;
+  justify-content: flex-start;
 }
 
 .order-actions .btn {
