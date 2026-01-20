@@ -3034,7 +3034,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       const supportFbLink = order.shipping?.fb
         ? order.shipping.fb.startsWith("http")
           ? order.shipping.fb
-          : `https://facebook.com/${order.shipping.fb.replace(/^https?:\\/\\//, "")}`
+          : `https://facebook.com/${order.shipping.fb.replace(/^https?:\/\//, "")}`
         : "";
       summary.innerHTML = `
         <div class="checkout-summary-card card">
