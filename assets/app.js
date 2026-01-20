@@ -1416,67 +1416,48 @@
     return `<div class="order-items">${markup}</div>`;
   };
 
-  const renderCustomerQuotePanel = (totals) => `
-    <div class="card">
-      <h4>Khung báo giá</h4>
-      <p><strong>Giá sản phẩm:</strong> ${formatNumber(totals.subtotalJPY)} ¥ / ${formatNumber(
-        totals.subtotalVND
-      )} ₫</p>
-      <p><strong>Ship ước tính:</strong> ${formatNumber(totals.shipJPY)} ¥ / ${formatNumber(
-        totals.shipVND
-      )} ₫</p>
-      <p><strong>Tổng:</strong> ${formatNumber(totals.totalJPY)} ¥ / ${formatNumber(
-        totals.totalVND
-      )} ₫</p>
-      <p class="helper">Lưu mã khách và mã đơn để tra cứu sau này.</p>
-    </div>
-  `;
-
-  const renderOrderStatusList = (orders) =>
-    orders
-      .map(
-        (entry) => `
-          <div class="segment">
-            <span><strong>${entry.id}</strong> · ${formatOrderStatus(entry.status)}</span>
-            <span>${new Date(entry.createdAt).toLocaleDateString("vi-VN")}</span>
-          </div>
-        `
-      )
-      .join("");
-
   const renderCustomerOrderSections = () => {
     const orders = getCustomerOrders();
-    const pending = orders.filter(
-      (entry) =>
-        entry.status !== STATUS.PAID &&
-        entry.status !== STATUS.CANCELLED &&
-        entry.status !== STATUS.SHIP_CONFIRMED
-    );
-    const confirmed = orders.filter((entry) => entry.status === STATUS.SHIP_CONFIRMED);
-    const paid = orders.filter((entry) => entry.status === STATUS.PAID);
+    if (!orders.length) {
+      return '<div class="card soft"><p class="helper">Chưa có đơn nào trên thiết bị này. Tạo đơn để bắt đầu mua sắm.</p></div>';
+    }
+    const settings = getSettings();
+    const products = getProducts();
+    const rows = orders
+      .slice()
+      .reverse()
+      .map((entry) => {
+        const totals = computeTotals(entry, settings, products);
+        return `
+          <tr>
+            <td>${entry.code}</td>
+            <td>${formatDateTime(entry.createdAt)}</td>
+            <td>${formatOrderStatus(entry.status)}</td>
+            <td>${formatPaymentStatus(entry.paymentStatus)}</td>
+            <td>JPY ${formatNumber(totals.totalJPY)} / VND ${formatNumber(totals.totalVND)}</td>
+          </tr>
+        `;
+      })
+      .join("");
     return `
-      <div class="card soft">
-        <h4>Khung đơn chờ thanh toán</h4>
-        ${pending.length ? renderOrderStatusList(pending) : "<p class='helper'>Bạn chưa có đơn nào đang chờ thanh toán.</p>"}
-      </div>
-      <div class="card soft">
-        <h4>Khung đơn đã thanh toán</h4>
-        ${paid.length ? renderOrderStatusList(paid) : "<p class='helper'>Chưa có đơn nào ghi nhận thanh toán.</p>"}
-      </div>
-      <div class="card soft">
-        <h4>Khung tiến trình đặt hàng</h4>
-        ${confirmed.length ? renderOrderStatusList(confirmed) : "<p class='helper'>Chưa có đơn nào được xác nhận ship.</p>"}
-      </div>
-    `;
-  };
-
-  const renderCustomerCodeCard = (order) => {
-    const code = order?.customerCode || getDeviceCustomerCode();
-    return `
-      <div class="card soft">
-        <h4>Mã khách hàng</h4>
-        <p><strong>${code}</strong> · dùng mã này để tra cứu đơn sau này.</p>
-        <button class="btn ghost small" id="copyCustomerCode" type="button">Sao chép mã</button>
+      <div class="card">
+        <h4>Lịch sử đơn hàng</h4>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Mã đơn</th>
+                <th>Ngày tạo</th>
+                <th>Trạng thái</th>
+                <th>Thanh toán</th>
+                <th>Tổng</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </div>
       </div>
     `;
   };
@@ -2857,33 +2838,54 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const disablePayment = paymentBlocked;
     const itemsMarkup = renderOrderItems(order, products);
     const timelineMarkup = renderTimeline(order);
+    const customerCode = order.customerCode || getDeviceCustomerCode();
+    const statusClass = expired ? "red" : shippingApproved ? "green" : "orange";
+    const statusLabel = expired
+      ? "Đã hết hạn"
+      : shippingApproved
+        ? "Ship đã xác nhận"
+        : "Đang xử lý";
     return `
       <div class="card">
         <div class="segment">
-          <strong>Mã đơn:</strong> ${order.code}
-          <span class="status ${expired ? "red" : "green"}">${
-            expired ? "HẾT HẠN" : "CÒN HIỆU LỰC"
-          }</span>
+          <div>
+            <p class="helper">Mã đơn</p>
+            <strong>${order.code}</strong>
+          </div>
+          <span class="status ${statusClass}">${statusLabel}</span>
         </div>
-        <p>Mã khách: ${order.customerCode}</p>
-        <p>Trạng thái: ${formatOrderStatus(order.status)} · Thanh toán: ${formatPaymentStatus(
-          order.paymentStatus
-        )}</p>
-        <p><strong>Mã thanh toán:</strong> ${order.paymentCode || order.code}</p>
-        <div class="price">
-          <span>Tạm tính: JPY ${formatNumber(totals.subtotalJPY)} / VND ${formatNumber(
-            totals.subtotalVND
-          )}</span>
-          <span>Ship: JPY ${formatNumber(totals.shipJPY)} / VND ${formatNumber(
-            totals.shipVND
-          )}</span>
-          <strong>Tổng cần trả: JPY ${formatNumber(totals.totalJPY)} / VND ${formatNumber(
-            totals.totalVND
-          )}</strong>
+        <div class="segment">
+          <p><strong>Trạng thái đơn:</strong> ${formatOrderStatus(order.status)}</p>
+          <p><strong>Thanh toán:</strong> ${formatPaymentStatus(order.paymentStatus)}</p>
+          <p><strong>Mã thanh toán:</strong> ${order.paymentCode || order.code}</p>
+          <p><strong>Ngày tạo:</strong> ${formatDateTime(order.createdAt)}</p>
+        </div>
+        <div class="grid-3 status-summary-grid">
+          <div>
+            <p class="helper">Giá trị sản phẩm</p>
+            <strong>${formatCurrency(totals.subtotalBase, settings.baseCurrency)}</strong>
+            <p class="helper">
+              JPY ${formatNumber(totals.subtotalJPY)} · VND ${formatNumber(totals.subtotalVND)}
+            </p>
+          </div>
+          <div>
+            <p class="helper">Phí ship</p>
+            <strong>JPY ${formatNumber(totals.shipJPY)}</strong>
+            <p class="helper">VND ${formatNumber(totals.shipVND)}</p>
+          </div>
+          <div>
+            <p class="helper">Tổng cần thanh toán</p>
+            <strong>JPY ${formatNumber(totals.totalJPY)}</strong>
+            <p class="helper">VND ${formatNumber(totals.totalVND)}</p>
+          </div>
+        </div>
+        <div class="segment">
+          <span><strong>Mã khách:</strong> ${customerCode}</span>
+          <button class="btn ghost small" id="copyCustomerCode" type="button">Sao chép mã</button>
         </div>
       </div>
       <div class="card">
-        <h4>Sản phẩm trong đơn</h4>
+        <h4>Sản phẩm khách mua</h4>
         ${itemsMarkup}
       </div>
       <div class="card">
@@ -2892,7 +2894,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       </div>
       ${
         !shippingApproved
-          ? '<div class="card"><p class="alert">Thanh toán sẽ mở khi admin xác nhận phí ship. Vui lòng chờ thông báo.</p></div>'
+          ? '<div class="card soft"><p class="alert">Thanh toán sẽ mở khi admin xác nhận phí ship. Vui lòng chờ thông báo.</p></div>'
           : ""
       }
       <div class="grid-2">
@@ -2908,27 +2910,20 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       <div class="card">
         <div class="field">
           <label>Upload bill (jpg/png/pdf ≤ 5MB)</label>
-          <input id="billUpload" type="file" accept=".jpg,.jpeg,.png,.pdf" ${
-            disablePayment ? "disabled" : ""
-          } />
+          <input id="billUpload" type="file" accept=".jpg,.jpeg,.png,.pdf" ${disablePayment ? "disabled" : ""} />
         </div>
-        <button class="btn primary" id="submitBill" type="button" ${
-          disablePayment ? "disabled" : ""
-        }>Gửi bill</button>
+        <button class="btn primary" id="submitBill" type="button" ${disablePayment ? "disabled" : ""}>Gửi bill</button>
         ${
           expired
             ? '<p class="alert">Mã đã hết hạn, vui lòng liên hệ admin để tái tạo.</p>'
             : ""
         }
         ${
-          paymentBlocked
+          paymentBlocked && !expired
             ? '<p class="alert">Thanh toán tạm thời khóa cho đến khi ship được xác nhận.</p>'
             : ""
         }
       </div>
-      ${renderCustomerQuotePanel(totals)}
-      ${renderCustomerOrderSections()}
-      ${renderCustomerCodeCard(order)}
     `;
   };
 
