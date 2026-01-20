@@ -1523,14 +1523,18 @@
         </div>
       `;
     }
-    const history = orders
-      .slice()
-      .reverse()
-      .map((order) => {
+    const reversed = orders.slice().reverse();
+    const history = reversed
+      .map((order, index) => {
         const totals = computeTotals(order, getSettings(), products);
         const badge = getOrderPaymentBadge(order);
+        const itemsMarkup = renderOrderItems(order, products);
+        const isLatest = index === 0;
         return `
-          <article class="history-card">
+          <article
+            class="history-card ${isLatest ? "history-card--latest" : ""}"
+            data-order-code="${order.code}"
+          >
             <div class="history-card-summary">
               <div>
                 <strong>${order.code}</strong>
@@ -1547,13 +1551,21 @@
                 totals.totalVND
               )}</span>
             </div>
-            <details class="history-card-details">
-              <summary>Chi tiết sản phẩm & tiến trình</summary>
-              <div class="history-card-detail-body">
-                ${renderOrderItems(order, products)}
-                <div class="timeline">${renderTimeline(order)}</div>
-              </div>
-            </details>
+            <div class="history-card-items">
+              ${itemsMarkup}
+            </div>
+            <div class="history-card-actions">
+              <button class="btn ghost small" type="button" data-action="detail" data-order-code="${
+                order.code
+              }">
+                Xem chi tiết
+              </button>
+              <button class="btn primary small" type="button" data-action="pay" data-order-code="${
+                order.code
+              }">
+                Thanh toán
+              </button>
+            </div>
           </article>
         `;
       })
@@ -3028,7 +3040,9 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
   const initPayment = () => {
     const activity = document.getElementById("paymentActivity");
-    const detail = document.getElementById("paymentDetail");
+    const modal = document.getElementById("paymentDetailModal");
+    const modalContent = document.getElementById("paymentDetailContent");
+    const modalClose = document.getElementById("paymentDetailClose");
 
     const generateBillPreview = (file) =>
       new Promise((resolve) => {
@@ -3052,6 +3066,20 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         reader.readAsDataURL(file);
       });
 
+    const openOrderDetail = (order) => {
+      if (!modal || !modalContent) return;
+      modalContent.innerHTML = renderPaymentResult(order);
+      modal.dataset.activeOrder = order.code;
+      modal.classList.remove("hidden");
+      copyCustomerCodeToClipboard();
+    };
+
+    const closeOrderDetail = () => {
+      if (!modal) return;
+      modal.classList.add("hidden");
+      modal.dataset.activeOrder = "";
+    };
+
     const renderActivity = () => {
       if (!activity) return;
       const orders = getCustomerOrders();
@@ -3061,37 +3089,33 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       `;
     };
 
-    const renderDetail = () => {
-      if (!detail) return;
-      const orders = getCustomerOrders();
-      if (!orders.length) {
-        detail.innerHTML =
-          '<div class="card"><p class="helper">Chưa có đơn để hiển thị. Đi tới giỏ hàng và tạo đơn mới bạn nhé.</p></div>';
-        detail.removeAttribute("data-active-order");
-        return;
-      }
-      const order = orders[orders.length - 1];
-      detail.innerHTML = renderPaymentResult(order);
-      detail.dataset.activeOrder = order.code;
-      copyCustomerCodeToClipboard();
+    const findOrderByCode = (code) => {
+      const orders = getOrders();
+      return orders.find((entry) => entry.paymentCode === code || entry.code === code);
     };
 
-    renderActivity();
-    renderDetail();
-
-    if (!detail) return;
-    detail.addEventListener("click", (event) => {
-      if (event.target.id !== "submitBill") return;
-      const orders = getOrders();
-      const code = detail.dataset.activeOrder;
+    const handleActivityClick = (event) => {
+      const nearby = event.target.closest("[data-order-code]");
+      const card = event.target.closest(".history-card");
+      const code = nearby?.dataset?.orderCode || card?.dataset?.orderCode;
       if (!code) return;
+      const order = findOrderByCode(code);
+      if (!order) return;
+      openOrderDetail(order);
+    };
+
+    const handleBillSubmission = (event) => {
+      if (event.target.id !== "submitBill") return;
+      const code = modal?.dataset?.activeOrder;
+      if (!code) return;
+      const orders = getOrders();
       const orderIndex = orders.findIndex(
         (entry) => entry.paymentCode === code || entry.code === code
       );
       if (orderIndex < 0) return;
       const settings = getSettings();
       if (!settings.paymentGateOpen) {
-        detail.insertAdjacentHTML(
+        modalContent?.insertAdjacentHTML(
           "beforeend",
           '<p class="alert">Cổng thanh toán đang đóng. Vui lòng chờ admin mở.</p>'
         );
@@ -3099,13 +3123,13 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       }
       const upload = document.getElementById("billUpload");
       if (!upload || !upload.files.length) {
-        detail.insertAdjacentHTML("beforeend", '<p class="alert">Vui lòng chọn file bill.</p>');
+        modalContent?.insertAdjacentHTML("beforeend", '<p class="alert">Vui lòng chọn file bill.</p>');
         return;
       }
       const file = upload.files[0];
       const allowed = ["image/jpeg", "image/png", "application/pdf"];
       if (!allowed.includes(file.type) || file.size > 5 * 1024 * 1024) {
-        detail.insertAdjacentHTML(
+        modalContent?.insertAdjacentHTML(
           "beforeend",
           '<p class="alert">File không hợp lệ hoặc vượt quá 5MB.</p>'
         );
@@ -3126,15 +3150,28 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           message: "Khách đã upload bill chuyển khoản.",
         });
         setOrders(orders);
-        renderDetail();
         renderActivity();
+        openOrderDetail(order);
       };
       if (file.type.startsWith("image/")) {
         generateBillPreview(file).then((preview) => finalizeBill(preview));
       } else {
         finalizeBill("");
       }
-    });
+    };
+
+    renderActivity();
+
+    if (activity) {
+      activity.addEventListener("click", handleActivityClick);
+    }
+    if (modal) {
+      modalClose?.addEventListener("click", closeOrderDetail);
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal) closeOrderDetail();
+      });
+      modalContent?.addEventListener("click", handleBillSubmission);
+    }
   };
 
   const initAdminLogin = () => {

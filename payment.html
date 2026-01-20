@@ -42,13 +42,24 @@
         <div class="section-header">
           <h2>Hoạt động đặt hàng</h2>
           <div class="line"></div>
-          <span class="badge green">Cập nhật tức thì</span>
+          <span class="badge green">Nơi đầu tiên hiển thị đơn mới nhất</span>
         </div>
         <p>
-          Các đơn trên thiết bị được sắp xếp để bạn nhanh chóng kiểm tra trạng thái, tổng tiền và lịch sử thanh toán.
+          Lướt nhanh những đơn đã tạo, thấy hình ảnh từng sản phẩm, số lượng, giá tiền và thanh toán ngay khi cần.
+          Chạm vào thẻ để mở chi tiết và chuyển sang cửa sổ chuyển khoản.
         </p>
         <div id="paymentActivity"></div>
       </section>
+    </main>
+
+    <div id="paymentDetailModal" class="detail-modal hidden">
+      <div class="detail-panel">
+        <button class="detail-close" id="paymentDetailClose" type="button" aria-label="Đóng chi tiết">
+          ×
+        </button>
+        <div id="paymentDetailContent"></div>
+      </div>
+    </div>
 
       <section class="section reveal">
         <div class="section-header">
