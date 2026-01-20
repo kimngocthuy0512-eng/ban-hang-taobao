@@ -1461,50 +1461,104 @@
     return `<div class="order-items-detailed">${markup}</div>`;
   };
 
-  const renderCustomerOrderSections = () => {
-    const orders = getCustomerOrders();
-    if (!orders.length) {
-      return '<div class="card soft"><p class="helper">Chưa có đơn nào trên thiết bị này. Tạo đơn để bắt đầu mua sắm.</p></div>';
-    }
+  const renderPaymentSummary = (orders) => {
     const settings = getSettings();
     const products = getProducts();
-    const rows = orders
+    const stats = orders.reduce(
+      (acc, order) => {
+        if (order.status === STATUS.CANCELLED) return acc;
+        const totals = computeTotals(order, settings, products);
+        const confirmed = order.paymentStatus === PAYMENT_STATUS.CONFIRMED;
+        if (!confirmed) {
+          acc.pending += 1;
+          acc.outstandingJPY += totals.totalJPY;
+          acc.outstandingVND += totals.totalVND;
+        } else {
+          acc.paid += 1;
+        }
+        if (order.status === STATUS.SHIP_CONFIRMED) acc.shipConfirmed += 1;
+        return acc;
+      },
+      { pending: 0, paid: 0, shipConfirmed: 0, outstandingJPY: 0, outstandingVND: 0 }
+    );
+    const latestOrder = orders[orders.length - 1];
+    const latestTotals = latestOrder
+      ? computeTotals(latestOrder, settings, products)
+      : null;
+    return `
+      <div class="payment-summary-grid">
+        <article class="payment-summary-card">
+          <p class="helper">Đơn đang theo dõi</p>
+          <strong>${orders.length}</strong>
+          <span>${stats.pending} chưa thanh toán · ${stats.paid} đã hoàn tất</span>
+        </article>
+        <article class="payment-summary-card">
+          <p class="helper">Giá trị cần thanh toán</p>
+          <strong>JPY ${formatNumber(stats.outstandingJPY)} · VND ${formatNumber(
+            stats.outstandingVND
+          )}</strong>
+          <span>${stats.shipConfirmed} đơn đã xác nhận ship</span>
+        </article>
+        <article class="payment-summary-card">
+          <p class="helper">Đơn mới nhất</p>
+          <strong>${latestOrder ? latestOrder.code : "-"}</strong>
+          <span>${
+            latestTotals
+              ? `JPY ${formatNumber(latestTotals.totalJPY)} · VND ${formatNumber(
+                  latestTotals.totalVND
+                )}`
+              : "Chưa có đơn hàng"
+          }</span>
+        </article>
+      </div>
+    `;
+  };
+
+  const renderPaymentHistory = (orders) => {
+    const products = getProducts();
+    if (!orders.length) {
+      return `
+        <div class="card soft">
+          <p class="helper">Chưa có lịch sử đơn hàng trên thiết bị, hãy tạo đơn mới để bắt đầu.</p>
+        </div>
+      `;
+    }
+    const history = orders
       .slice()
       .reverse()
-      .map((entry) => {
-        const totals = computeTotals(entry, settings, products);
+      .map((order) => {
+        const totals = computeTotals(order, getSettings(), products);
+        const badge = getOrderPaymentBadge(order);
         return `
-          <tr>
-            <td>${entry.code}</td>
-            <td>${formatDateTime(entry.createdAt)}</td>
-            <td>${formatOrderStatus(entry.status)}</td>
-            <td>${formatPaymentStatus(entry.paymentStatus)}</td>
-            <td>JPY ${formatNumber(totals.totalJPY)} / VND ${formatNumber(totals.totalVND)}</td>
-          </tr>
+          <article class="history-card">
+            <div class="history-card-summary">
+              <div>
+                <strong>${order.code}</strong>
+                <span class="helper">${formatDateTime(order.createdAt)}</span>
+              </div>
+              <div class="history-card-status">
+                <span class="status ${badge.class}">${badge.label}</span>
+                <span class="helper">${formatPaymentStatus(order.paymentStatus)}</span>
+              </div>
+            </div>
+            <div class="history-card-meta">
+              <span><strong>${formatOrderStatus(order.status)}</strong></span>
+              <span>JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(
+                totals.totalVND
+              )}</span>
+            </div>
+            <details class="history-card-details">
+              <summary>Chi tiết sản phẩm & tiến trình</summary>
+              <div class="history-card-detail-body">
+                ${renderOrderItems(order, products)}
+                <div class="timeline">${renderTimeline(order)}</div>
+              </div>
+            </details>
+          </article>
         `;
       })
       .join("");
-    return `
-      <div class="card">
-        <h4>Lịch sử đơn hàng</h4>
-        <div class="table-wrap">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Mã đơn</th>
-                <th>Ngày tạo</th>
-                <th>Trạng thái</th>
-                <th>Thanh toán</th>
-                <th>Tổng</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
+    return `<div class="payment-history-list">${history}</div>`;
   };
 
   const RANDOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -3001,12 +3055,10 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const renderActivity = () => {
       if (!activity) return;
       const orders = getCustomerOrders();
-      if (!orders.length) {
-        activity.innerHTML =
-          '<div class="card"><p class="helper">Chưa có đơn hàng nào trên thiết bị này. Khởi tạo đơn để bắt đầu.</p></div>';
-        return;
-      }
-      activity.innerHTML = renderCustomerOrderSections();
+      activity.innerHTML = `
+        ${renderPaymentSummary(orders)}
+        ${renderPaymentHistory(orders)}
+      `;
     };
 
     const renderDetail = () => {
