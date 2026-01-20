@@ -42,43 +42,44 @@
 
     <main class="app-shell">
       <section class="section reveal">
-        <div class="grid-2">
-          <div class="card">
-            <div class="card" id="productMain" style="height: 260px"></div>
+        <div class="product-detail-grid">
+          <div class="product-visual">
+            <div class="product-visual-inner card" id="productMain" style="height: 320px"></div>
             <div class="grid-3" id="productThumbs"></div>
+            <div class="product-depth-layer"></div>
           </div>
-        <div class="card">
-          <div class="order-panel">
-            <div class="order-tags" id="productTags"></div>
-            <div class="order-defaults" id="productDefaults"></div>
-            <div class="order-stock">
-              <span class="status" id="productStock"></span>
-            </div>
-            <div class="order-hero">
-              <div>
-                <h2 id="productName"></h2>
-                <p id="productDesc"></p>
+          <div class="card">
+            <div class="order-panel">
+              <div class="order-tags" id="productTags"></div>
+              <div class="order-defaults" id="productDefaults"></div>
+              <div class="order-stock">
+                <span class="status" id="productStock"></span>
               </div>
-              <button class="btn ghost small" id="productWish" type="button">Lưu</button>
-            </div>
-            <div class="price order-price" id="productPrices"></div>
-            <div class="order-sizes">
-              <div class="field">
-                <label>Size chữ</label>
-                <div class="segment" id="sizeText"></div>
+              <div class="order-hero">
+                <div>
+                  <h2 id="productName"></h2>
+                  <p id="productDesc"></p>
+                </div>
+                <button class="btn ghost small" id="productWish" type="button">Lưu</button>
               </div>
-              <div class="field">
-                <label>Size số</label>
-                <div class="segment" id="sizeNum"></div>
+              <div class="price order-price" id="productPrices"></div>
+              <div class="order-sizes">
+                <div class="field">
+                  <label>Size chữ</label>
+                  <div class="segment" id="sizeText"></div>
+                </div>
+                <div class="field">
+                  <label>Size số</label>
+                  <div class="segment" id="sizeNum"></div>
+                </div>
               </div>
+              <div class="order-actions">
+                <button class="btn primary" id="addToCart" type="button">Thêm vào giỏ</button>
+                <button class="btn secondary" id="buyNow" type="button">Mua ngay</button>
+              </div>
+              <p class="badge orange" id="sizeHint">Vui lòng chọn size trước khi thao tác.</p>
             </div>
-            <div class="order-actions">
-              <button class="btn primary" id="addToCart" type="button">Thêm vào giỏ</button>
-              <button class="btn secondary" id="buyNow" type="button">Mua ngay</button>
-            </div>
-            <p class="badge orange" id="sizeHint">Vui lòng chọn size trước khi thao tác.</p>
           </div>
-        </div>
         </div>
       </section>
 
