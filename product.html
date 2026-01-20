@@ -47,32 +47,38 @@
             <div class="card" id="productMain" style="height: 260px"></div>
             <div class="grid-3" id="productThumbs"></div>
           </div>
-          <div class="card">
-            <div class="segment" id="productTags"></div>
-            <div class="segment" id="productDefaults"></div>
-            <div class="segment">
+        <div class="card">
+          <div class="order-panel">
+            <div class="order-tags" id="productTags"></div>
+            <div class="order-defaults" id="productDefaults"></div>
+            <div class="order-stock">
               <span class="status" id="productStock"></span>
             </div>
-            <div class="segment">
-              <h2 id="productName"></h2>
+            <div class="order-hero">
+              <div>
+                <h2 id="productName"></h2>
+                <p id="productDesc"></p>
+              </div>
               <button class="btn ghost small" id="productWish" type="button">Lưu</button>
             </div>
-            <p id="productDesc"></p>
-            <div class="price" id="productPrices"></div>
-            <div class="field">
-              <label>Size chữ</label>
-              <div class="segment" id="sizeText"></div>
+            <div class="price order-price" id="productPrices"></div>
+            <div class="order-sizes">
+              <div class="field">
+                <label>Size chữ</label>
+                <div class="segment" id="sizeText"></div>
+              </div>
+              <div class="field">
+                <label>Size số</label>
+                <div class="segment" id="sizeNum"></div>
+              </div>
             </div>
-            <div class="field">
-              <label>Size số</label>
-              <div class="segment" id="sizeNum"></div>
-            </div>
-            <div class="hero-actions">
+            <div class="order-actions">
               <button class="btn primary" id="addToCart" type="button">Thêm vào giỏ</button>
               <button class="btn secondary" id="buyNow" type="button">Mua ngay</button>
             </div>
             <p class="badge orange" id="sizeHint">Vui lòng chọn size trước khi thao tác.</p>
           </div>
+        </div>
         </div>
       </section>
 

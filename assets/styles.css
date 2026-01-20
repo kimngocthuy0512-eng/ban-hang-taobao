@@ -1055,6 +1055,58 @@ textarea {
   opacity: 1;
 }
 
+.order-panel {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1.25rem;
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(255, 240, 234, 0.82));
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 22px 40px rgba(12, 15, 25, 0.12);
+  position: relative;
+  overflow: hidden;
+}
+
+.order-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 70% -10%, rgba(255, 255, 255, 0.45), transparent 45%);
+  pointer-events: none;
+  opacity: 0.25;
+}
+
+.order-panel .order-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.order-panel .order-price {
+  display: grid;
+  gap: 0.4rem;
+  justify-content: center;
+  font-size: 1.4rem;
+}
+
+.order-sizes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.65rem;
+}
+
+.order-actions {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.order-actions .btn {
+  min-width: 150px;
+  letter-spacing: 0.05em;
+}
+
 .product-highlight-badge {
   position: absolute;
   top: 0.6rem;
