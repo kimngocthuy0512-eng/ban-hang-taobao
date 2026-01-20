@@ -2933,9 +2933,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
   };
 
   const initPayment = () => {
-    const input = document.getElementById("paymentCode");
-    const lookup = document.getElementById("paymentLookup");
-    const result = document.getElementById("paymentResult");
+    const activity = document.getElementById("paymentActivity");
+    const detail = document.getElementById("paymentDetail");
 
     const generateBillPreview = (file) =>
       new Promise((resolve) => {
@@ -2959,47 +2958,48 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         reader.readAsDataURL(file);
       });
 
-    const handleLookup = () => {
-      const code = input.value.trim().toUpperCase();
-      const orders = getOrders();
-      const order = orders.find(
-        (entry) => entry.paymentCode === code || entry.code === code
-      );
-      if (!order) {
-        result.innerHTML = "<div class=\"alert\">Không tìm thấy mã thanh toán.</div>";
+    const renderActivity = () => {
+      if (!activity) return;
+      const orders = getCustomerOrders();
+      if (!orders.length) {
+        activity.innerHTML =
+          '<div class="card"><p class="helper">Chưa có đơn hàng nào trên thiết bị này. Khởi tạo đơn để bắt đầu.</p></div>';
         return;
       }
-      const expired = order.paymentExpiresAt && Date.now() > order.paymentExpiresAt;
-      if (expired && order.paymentStatus === PAYMENT_STATUS.NOT_PAID) {
-        order.paymentStatus = PAYMENT_STATUS.EXPIRED;
-        pushTimeline(order, {
-          status: order.status,
-          paymentStatus: order.paymentStatus,
-          actor: "system",
-          message: "Mã thanh toán đã hết hạn.",
-        });
-        setOrders(orders);
+      activity.innerHTML = renderCustomerOrderSections();
+    };
+
+    const renderDetail = () => {
+      if (!detail) return;
+      const orders = getCustomerOrders();
+      if (!orders.length) {
+        detail.innerHTML =
+          '<div class="card"><p class="helper">Chưa có đơn để hiển thị. Đi tới giỏ hàng và tạo đơn mới bạn nhé.</p></div>';
+        detail.removeAttribute("data-active-order");
+        return;
       }
-      result.innerHTML = renderPaymentResult(order);
+      const order = orders[orders.length - 1];
+      detail.innerHTML = renderPaymentResult(order);
+      detail.dataset.activeOrder = order.code;
       copyCustomerCodeToClipboard();
     };
 
-    lookup.addEventListener("click", handleLookup);
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") handleLookup();
-    });
+    renderActivity();
+    renderDetail();
 
-    result.addEventListener("click", (event) => {
+    if (!detail) return;
+    detail.addEventListener("click", (event) => {
       if (event.target.id !== "submitBill") return;
       const orders = getOrders();
-      const code = input.value.trim().toUpperCase();
+      const code = detail.dataset.activeOrder;
+      if (!code) return;
       const orderIndex = orders.findIndex(
         (entry) => entry.paymentCode === code || entry.code === code
       );
       if (orderIndex < 0) return;
       const settings = getSettings();
       if (!settings.paymentGateOpen) {
-        result.insertAdjacentHTML(
+        detail.insertAdjacentHTML(
           "beforeend",
           '<p class="alert">Cổng thanh toán đang đóng. Vui lòng chờ admin mở.</p>'
         );
@@ -3007,13 +3007,13 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       }
       const upload = document.getElementById("billUpload");
       if (!upload || !upload.files.length) {
-        result.insertAdjacentHTML("beforeend", '<p class="alert">Vui lòng chọn file bill.</p>');
+        detail.insertAdjacentHTML("beforeend", '<p class="alert">Vui lòng chọn file bill.</p>');
         return;
       }
       const file = upload.files[0];
       const allowed = ["image/jpeg", "image/png", "application/pdf"];
       if (!allowed.includes(file.type) || file.size > 5 * 1024 * 1024) {
-        result.insertAdjacentHTML(
+        detail.insertAdjacentHTML(
           "beforeend",
           '<p class="alert">File không hợp lệ hoặc vượt quá 5MB.</p>'
         );
@@ -3034,8 +3034,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           message: "Khách đã upload bill chuyển khoản.",
         });
         setOrders(orders);
-        result.innerHTML = renderPaymentResult(order);
-        copyCustomerCodeToClipboard();
+        renderDetail();
+        renderActivity();
       };
       if (file.type.startsWith("image/")) {
         generateBillPreview(file).then((preview) => finalizeBill(preview));

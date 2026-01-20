@@ -40,30 +40,21 @@
     <main class="app-shell">
       <section class="section reveal">
         <div class="section-header">
-          <h2>Nhập mã thanh toán</h2>
+          <h2>Chi tiết hoạt động mua hàng</h2>
           <div class="line"></div>
+          <span class="badge green">Cập nhật tự động</span>
         </div>
-        <div class="stepper">
-          <div class="step">1. Tạo đơn</div>
-          <div class="step">2. Báo giá ship</div>
-          <div class="step active">3. Thanh toán</div>
-        </div>
-        <p>Mã thanh toán chính là mã đơn hàng (Order Code) do admin gửi sau khi báo giá.</p>
-        <div class="card form-grid">
-          <div class="field">
-            <label for="paymentCode">Nhập mã đơn hàng</label>
-            <input id="paymentCode" type="text" placeholder="VD: DH2026-000001" />
-          </div>
-          <button class="btn primary" id="paymentLookup" type="button">Tra cứu thanh toán</button>
-        </div>
+        <p>Không cần nhập mã: hệ thống tự động hiển thị lịch sử đơn mua, đơn chưa thanh toán và tiến trình ship.</p>
+        <div id="paymentActivity"></div>
       </section>
 
       <section class="section reveal">
         <div class="section-header">
-          <h2>Kết quả tra cứu</h2>
+          <h2>Đơn gần nhất</h2>
           <div class="line"></div>
+          <span class="badge">Tùy theo dữ liệu trên thiết bị</span>
         </div>
-        <div id="paymentResult"></div>
+        <div id="paymentDetail"></div>
       </section>
     </main>
 
