@@ -97,6 +97,7 @@
     importEndpoint: "https://ban-hang-taobao-api.quatbqi-p11.workers.dev/import",
     importCookie: "",
     lastSync: "",
+    orderEndpoint: "/orders",
   };
 
   const getAutoImportBaseUrl = (settings) => {
@@ -691,6 +692,60 @@
     }
   };
 
+  const fetchBackendOrders = async () => {
+    try {
+      const response = await fetch("/orders", { cache: "no-store" });
+      if (!response.ok) throw new Error("Không thể lấy đơn");
+      const payload = await response.json();
+      if (!payload || !Array.isArray(payload.orders)) {
+        return [];
+      }
+      return payload.orders;
+    } catch (error) {
+      console.warn("Lấy đơn từ backend thất bại:", error);
+      return [];
+    }
+  };
+
+  const renderAdminOrderQueue = async (container, meta) => {
+    if (!container) return;
+    const orders = await fetchBackendOrders();
+    if (!orders.length) {
+      container.innerHTML =
+        '<div class="card soft"><p>Chưa có đơn hàng mới từ backend.</p></div>';
+      if (meta) meta.textContent = "Chưa có đơn hàng nào.";
+      return;
+    }
+    const rows = orders.slice(0, 4).map((order) => {
+      const totalLabel =
+        typeof order.totalJPY === "number" && typeof order.totalVND === "number"
+          ? `${order.totalJPY.toLocaleString("en-US")} ¥ / ${order.totalVND.toLocaleString()} ₫`
+          : "Đang tính tổng";
+      const timestamp = order.createdAt
+        ? new Date(order.createdAt).toLocaleString("vi-VN")
+        : "-";
+      const statusLabel = formatOrderStatus(order.status);
+      const note =
+        Array.isArray(order.notes) && order.notes.length
+          ? order.notes[order.notes.length - 1].text
+          : "";
+      return `
+        <article class="card">
+          <div class="segment">
+            <strong>Mã:</strong> ${order.id}
+            <span class="status">${statusLabel}</span>
+          </div>
+          <p><strong>Khách:</strong> ${order.customer?.name || "Khách vãng lai"}</p>
+          <p><strong>Tổng:</strong> ${totalLabel}</p>
+          <p><strong>Thời gian:</strong> ${timestamp}</p>
+          <p class="helper">${note || "Chưa có ghi chú admin."}</p>
+        </article>
+      `;
+    });
+    container.innerHTML = rows.join("");
+    if (meta) meta.textContent = `Đã cập nhật ${new Date().toLocaleTimeString("vi-VN")}`;
+  };
+
   const getSnapshot = () => getBackupSnapshot() || buildSnapshot();
 
   const applySnapshot = (snapshot) => {
@@ -768,6 +823,30 @@
 
   const getProducts = () => readStore(KEYS.products, DEFAULT_PRODUCTS);
   const setProducts = (products) => writeStore(KEYS.products, products);
+
+  const getOrderEndpoint = () => (getSettings().orderEndpoint || "/orders");
+
+  const ensureNoticePanel = () => {
+    let panel = document.getElementById("orderNotice");
+    if (!panel) {
+      panel = document.createElement("div");
+      panel.id = "orderNotice";
+      panel.className = "order-notice";
+      document.body.appendChild(panel);
+    }
+    return panel;
+  };
+
+  let noticeTimer = null;
+  const showOrderNotice = (message) => {
+    if (!message) return;
+    const panel = ensureNoticePanel();
+    panel.textContent = message;
+    panel.classList.add("visible");
+    if (noticeTimer) clearTimeout(noticeTimer);
+    noticeTimer = setTimeout(() => panel.classList.remove("visible"), 12000);
+  };
+
 
   const needsDefaultTraits = (product) =>
     Boolean(product) && (!product.defaultColor || !product.defaultSize);
@@ -1362,7 +1441,7 @@
       .join("");
   };
 
-  const computeTotals = (order, settings, products, overrides = {}) => {
+const computeTotals = (order, settings, products, overrides = {}) => {
     const subtotalBase = order.items.reduce((sum, item) => {
       const product = products.find((entry) => entry.id === item.id);
       const basePrice = Number(item.basePrice ?? product?.basePrice ?? 0);
@@ -1398,6 +1477,39 @@
       taxJPY,
       taxVND,
     };
+  };
+
+  const persistOrderToBackend = async (order) => {
+    if (!order || !order.items?.length) return;
+    const endpoint = getOrderEndpoint();
+    if (!endpoint) return;
+    const settings = getSettings();
+    const products = getProducts();
+    const totals = computeTotals(order, settings, products);
+    const payload = {
+      customerCode: order.customerCode,
+      customer: order.customer,
+      items: order.items,
+      shipping: order.shipping || {},
+      subtotalBase: totals.subtotalBase,
+      totalJPY: totals.totalJPY,
+      totalVND: totals.totalVND,
+    };
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json().catch(() => ({}));
+      const message = data?.message;
+      if (message) showOrderNotice(message);
+      if (data?.customerCode) {
+        store.setItem(KEYS.deviceCustomerCode, data.customerCode);
+      }
+    } catch (error) {
+      console.warn("Order sync failed", error);
+    }
   };
 
   const computeCartTotals = (cart, settings, products) => {
@@ -2521,6 +2633,10 @@
         shipFee: 0,
         shipCurrency: "JPY",
         items,
+        shipping: {
+          address: payload.address || "",
+          fb: payload.fb || "",
+        },
         billSubmitted: false,
         note: "",
         createdAt: Date.now(),
@@ -2542,6 +2658,7 @@
       updateCartBadge();
       renderSummary(order);
       form.reset();
+      persistOrderToBackend(order);
     });
   };
 
@@ -3022,6 +3139,17 @@
     renderAdminInsights(document.getElementById("overviewStats")).catch((error) => {
       console.error("Không thể tải thông tin tổng quan admin:", error);
     });
+    const orderPanel = document.getElementById("adminOrdersPanel");
+    const orderMeta = document.getElementById("adminOrderRefreshMeta");
+    const orderRefreshBtn = document.getElementById("adminOrderRefresh");
+    const refreshOrders = () =>
+      renderAdminOrderQueue(orderPanel, orderMeta).catch((error) => {
+        console.error("Không thể tải đơn hàng từ backend:", error);
+      });
+    refreshOrders();
+    if (orderRefreshBtn) {
+      orderRefreshBtn.addEventListener("click", refreshOrders);
+    }
   };
 
   const initAdminSettings = () => {

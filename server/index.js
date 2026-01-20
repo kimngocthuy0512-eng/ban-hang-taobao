@@ -4,6 +4,7 @@ const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const https = require("https");
 const { spawn } = require("child_process");
 const { chromium } = require("playwright");
 
@@ -117,6 +118,112 @@ const sortSizesForMetadata = (sizes = []) => {
   const sortedNumeric = [...new Set(numeric)].sort((a, b) => a - b).map((value) => String(value));
   const sortedAlpha = Array.from(new Set(alpha)).sort((a, b) => a.localeCompare(b, "vi"));
   return [...sortedNumeric, ...sortedAlpha];
+};
+
+const ORDER_STORE_FILE = path.join(DATA_DIR, "shop-store.json");
+const RATE_API_URL = "https://api.exchangerate.host/latest?base=CNY&symbols=JPY,VND";
+const RATE_REFRESH_MS = Number(process.env.RATE_REFRESH_MS || 5 * 60 * 1000);
+const DEFAULT_STORE = {
+  customers: {},
+  orders: [],
+  rates: {
+    JPY: { value: 21.5, updatedAt: new Date().toISOString() },
+    VND: { value: 3600, updatedAt: new Date().toISOString() },
+  },
+};
+
+const fetchJson = (url, timeout = 8000) =>
+  new Promise((resolve, reject) => {
+    const req = https.get(url, { timeout }, (res) => {
+      let raw = "";
+      res.on("data", (chunk) => (raw += chunk));
+      res.on("end", () => {
+        if (res.statusCode && res.statusCode >= 400) {
+          reject(new Error(`Failed to fetch rates (${res.statusCode})`));
+          return;
+        }
+        try {
+          resolve(JSON.parse(raw));
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => {
+      req.destroy(new Error("Request timeout"));
+    });
+  });
+
+const loadOrderStore = () => {
+  ensureDataDir();
+  if (!fs.existsSync(ORDER_STORE_FILE)) {
+    return { ...DEFAULT_STORE };
+  }
+  try {
+    const raw = fs.readFileSync(ORDER_STORE_FILE, "utf-8");
+    const parsed = JSON.parse(raw);
+    return {
+      ...DEFAULT_STORE,
+      ...parsed,
+      rates: {
+        ...DEFAULT_STORE.rates,
+        ...(parsed.rates || {}),
+      },
+    };
+  } catch (error) {
+    console.warn("Failed to load store", error);
+    return { ...DEFAULT_STORE };
+  }
+};
+
+const saveOrderStore = (payload) => {
+  ensureDataDir();
+  fs.writeFileSync(ORDER_STORE_FILE, JSON.stringify(payload, null, 2));
+  return payload;
+};
+
+const normalizeOrders = (orders) =>
+  (Array.isArray(orders) ? orders : []).map((order) => ({
+    ...order,
+    createdAt: order.createdAt || new Date().toISOString(),
+  }));
+
+const buildOrderId = () => `ORD-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`;
+
+const buildCustomerCode = (fingerprint) =>
+  crypto.createHash("sha1").update(String(fingerprint || crypto.randomBytes(8).toString("hex"))).digest("hex").slice(0, 8).toUpperCase();
+
+const getVisitorFingerprint = (req) => {
+  const forwarded = req.headers["x-forwarded-for"] || "";
+  const ip =
+    forwarded.split(",").map((part) => part.trim()).find(Boolean) ||
+    req.socket.remoteAddress ||
+    req.ip ||
+    "0.0.0.0";
+  const ua = req.headers["user-agent"] || "";
+  return `${ip}|${ua}`;
+};
+
+let rateRefreshTimer = null;
+
+const refreshRates = async () => {
+  const store = loadOrderStore();
+  try {
+    const json = await fetchJson(RATE_API_URL);
+    const rates = json?.rates || {};
+    const now = new Date().toISOString();
+    const nextRates = {
+      JPY: { value: Number(rates.JPY || DEFAULT_STORE.rates.JPY.value), updatedAt: now },
+      VND: { value: Number(rates.VND || DEFAULT_STORE.rates.VND.value), updatedAt: now },
+    };
+    store.rates = nextRates;
+    saveOrderStore(store);
+    return nextRates;
+  } catch (error) {
+    console.warn("Rate refresh failed", error.message);
+    return store.rates;
+  }
 };
 
 const buildShopMetadata = (snapshot) => {
@@ -1001,6 +1108,20 @@ const waitForTaobaoLoginCookie = async (context, timeoutMs = TAOBAO_LOGIN_TIMEOU
   return null;
 };
 
+const initRateRefresh = async () => {
+  await refreshRates();
+  if (rateRefreshTimer) clearInterval(rateRefreshTimer);
+  rateRefreshTimer = setInterval(() => {
+    refreshRates().catch((error) => {
+      console.warn("Rate refresh error:", error.message);
+    });
+  }, RATE_REFRESH_MS);
+};
+
+initRateRefresh().catch((error) => {
+  console.warn("Failed to initialize rates", error.message);
+});
+
 app.use("/media", express.static(MEDIA_DIR, { maxAge: "365d", etag: true }));
 
 app.get("/health", (req, res) => {
@@ -1038,6 +1159,166 @@ app.post("/sync", (req, res) => {
   };
   saveSyncStore(store);
   res.json({ ok: true, key, updatedAt: store[key].meta.updatedAt });
+});
+
+const buildCustomerRecord = (store, code, fingerprint, req) => {
+  const previous = store.customers[code] || {};
+  const now = new Date().toISOString();
+  const ip =
+    (req.headers["x-forwarded-for"] || "").split(",").map((ip) => ip.trim()).find(Boolean) ||
+    req.socket.remoteAddress ||
+    req.ip ||
+    "0.0.0.0";
+  store.customers[code] = {
+    code,
+    fingerprint,
+    ip,
+    userAgent: req.headers["user-agent"] || "",
+    lastSeen: now,
+    visits: (previous.visits || 0) + 1,
+    orders: previous.orders || [],
+  };
+  return store.customers[code];
+};
+
+const appendOrderNote = (order, note) => {
+  if (!note) return;
+  if (!order.notes) order.notes = [];
+  order.notes.push({
+    id: crypto.randomBytes(4).toString("hex"),
+    text: note,
+    createdAt: new Date().toISOString(),
+    type: "system",
+  });
+};
+
+app.get("/visitor-code", (req, res) => {
+  const fingerprint = getVisitorFingerprint(req);
+  const code = buildCustomerCode(fingerprint);
+  const store = loadOrderStore();
+  buildCustomerRecord(store, code, fingerprint, req);
+  saveOrderStore(store);
+  res.json({ ok: true, code });
+});
+
+app.get("/rates", (req, res) => {
+  const store = loadOrderStore();
+  res.json({ ok: true, rates: store.rates });
+});
+
+app.post("/rates/refresh", async (req, res) => {
+  const updated = await refreshRates();
+  res.json({ ok: true, rates: updated });
+});
+
+const ORDER_STATUS = {
+  PENDING_QUOTE: "PENDING_QUOTE",
+  QUOTED_WAITING_PAYMENT: "QUOTED_WAITING_PAYMENT",
+  PAYMENT_UNDER_REVIEW: "PAYMENT_UNDER_REVIEW",
+  PAID: "PAID",
+  CANCELLED: "CANCELLED",
+};
+
+app.post("/orders", (req, res) => {
+  const payload = req.body || {};
+  const items = Array.isArray(payload.items) ? payload.items : [];
+  if (!items.length) {
+    res.status(400).json({ ok: false, message: "Không có sản phẩm nào" });
+    return;
+  }
+  const fingerprint = getVisitorFingerprint(req);
+  const customerCode = payload.customerCode || buildCustomerCode(fingerprint);
+  const store = loadOrderStore();
+  const customer = buildCustomerRecord(store, customerCode, fingerprint, req);
+  const now = new Date().toISOString();
+  const order = {
+    id: buildOrderId(),
+    customerCode,
+    createdAt: now,
+    status: ORDER_STATUS.PENDING_QUOTE,
+    paymentStatus: "NOT_PAID",
+    device: {
+      ip: customer.ip,
+      userAgent: customer.userAgent,
+    },
+    customer: {
+      name: payload.customer?.name || "",
+      phone: payload.customer?.phone || "",
+      email: payload.customer?.email || "",
+      note: payload.customer?.note || "",
+    },
+    shipping: payload.shipping || {},
+    items,
+    subtotal: payload.subtotal || null,
+    total: payload.total || null,
+    notes: [],
+  };
+  appendOrderNote(
+    order,
+    "xin lưu ý thông tin đang được gửi đi xin vui lòng chờ đợi để admin báo giá ship và tổng đơn để quý khách tiến hành chuyển khoản và đặt hàng. xin vui lòng theo dõi tiến trình ở mục thanh toán. xin cảm ơn."
+  );
+  if (!customer.orders.includes(order.id)) {
+    customer.orders.push(order.id);
+  }
+  store.orders.unshift(order);
+  saveOrderStore(store);
+  res.json({
+    ok: true,
+    orderId: order.id,
+    message:
+      "xin lưu ý thông tin đang được gửi đi xin vui lòng chờ đợi để admin báo giá ship và tổng đơn để quý khách tiến hành chuyển khoản và đặt hàng. xin vui lòng theo dõi tiến trình ở mục thanh toán. xin cảm ơn.",
+    customerCode,
+  });
+});
+
+app.get("/orders", (req, res) => {
+  const store = loadOrderStore();
+  res.json({ ok: true, orders: store.orders });
+});
+
+app.get("/orders/:id", (req, res) => {
+  const store = loadOrderStore();
+  const order = store.orders.find((entry) => entry.id === req.params.id);
+  if (!order) {
+    res.status(404).json({ ok: false, message: "Đơn hàng không tồn tại" });
+    return;
+  }
+  res.json({ ok: true, order });
+});
+
+app.patch("/orders/:id", (req, res) => {
+  const payload = req.body || {};
+  const store = loadOrderStore();
+  const orderIndex = store.orders.findIndex((entry) => entry.id === req.params.id);
+  if (orderIndex === -1) {
+    res.status(404).json({ ok: false, message: "Đơn hàng không tồn tại" });
+    return;
+  }
+  const order = store.orders[orderIndex];
+  if (payload.status && ORDER_STATUS[payload.status]) {
+    order.status = payload.status;
+  }
+  if (payload.paymentStatus) {
+    order.paymentStatus = payload.paymentStatus;
+  }
+  if (payload.adminNote) {
+    order.notes = order.notes || [];
+    order.notes.push({
+      id: crypto.randomBytes(4).toString("hex"),
+      text: payload.adminNote,
+      type: "admin",
+      createdAt: new Date().toISOString(),
+    });
+  }
+  if (payload.shipping) {
+    order.shipping = {
+      ...order.shipping,
+      ...payload.shipping,
+    };
+  }
+  store.orders[orderIndex] = order;
+  saveOrderStore(store);
+  res.json({ ok: true, order });
 });
 
 app.post("/cache-image", async (req, res) => {
