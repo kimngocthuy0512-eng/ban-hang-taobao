@@ -1682,11 +1682,15 @@
     return intersectionObserver; // Return the observer so it can be disconnected later
   };
 
+  const isAdminAuthenticated = () =>
+    sessionStore.getItem(KEYS.adminAuth) === "1" || store.getItem(KEYS.adminAuth) === "1";
+
   const bindProductCardNavigation = (container) => {
     if (!container || container.dataset.bound === "true") return;
     container.dataset.bound = "true";
     const navigate = (card) => {
       const id = card.dataset.id;
+      if (!isAdminAuthenticated()) return;
       if (id) window.location.href = `product.html?id=${id}`;
     };
     container.addEventListener("click", (event) => {
@@ -2812,23 +2816,32 @@
     });
   };
 
+  const STATUS_OVERVIEW = [
+    { status: STATUS.PENDING_QUOTE, label: "Chờ báo giá", hint: "Liên hệ khách khi có báo giá" },
+    { status: STATUS.QUOTED_WAITING_PAYMENT, label: "Chờ thanh toán", hint: "Đã gửi hóa đơn" },
+    { status: STATUS.PAYMENT_UNDER_REVIEW, label: "Đang xác nhận", hint: "Kiểm tra bill ngân hàng" },
+    { status: STATUS.PAID, label: "Đã thanh toán", hint: "Chuyển sang giao hàng" },
+    { status: STATUS.CANCELLED, label: "Đã hủy", hint: "Cần xác nhận nguyên nhân" },
+  ];
+
   const renderStatusStats = (container) => {
     if (!container) return;
     const ordersList = getOrders();
-    const counts = ordersList.reduce(
-      (acc, order) => {
-        acc[order.status] = (acc[order.status] || 0) + 1;
-        return acc;
-      },
-      {}
-    );
-    container.innerHTML = `
-      <div class="card soft"><h3>${counts[STATUS.PENDING_QUOTE] || 0}</h3><p>Chờ báo giá</p></div>
-      <div class="card soft"><h3>${counts[STATUS.QUOTED_WAITING_PAYMENT] || 0}</h3><p>Chờ thanh toán</p></div>
-      <div class="card soft"><h3>${counts[STATUS.PAYMENT_UNDER_REVIEW] || 0}</h3><p>Đang xác nhận</p></div>
-      <div class="card soft"><h3>${counts[STATUS.PAID] || 0}</h3><p>Đã thanh toán</p></div>
-      <div class="card soft"><h3>${counts[STATUS.CANCELLED] || 0}</h3><p>Đã hủy</p></div>
-    `;
+    const counts = ordersList.reduce((acc, order) => {
+      acc[order.status] = (acc[order.status] || 0) + 1;
+      return acc;
+    }, {});
+    container.innerHTML = STATUS_OVERVIEW.map((entry) => {
+      const count = counts[entry.status] || 0;
+      return `
+        <div class="card soft status-card" data-status="${entry.status}">
+          <span class="status-card-badge">•</span>
+          <strong>${count}</strong>
+          <p>${entry.label}</p>
+          <span class="hint">${entry.hint}</span>
+        </div>
+      `;
+    }).join("");
   };
 
   const fetchAutoImportStatusPayload = async () => {
