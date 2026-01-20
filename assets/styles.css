@@ -71,11 +71,10 @@ body::after {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background-image: radial-gradient(circle, rgba(255,255,255,0.02) 0, transparent 40%);
-  background-size: 150px 150px;
-  animation: particleDrift 30s linear infinite;
-  mix-blend-mode: screen;
-  opacity: 0.25;
+  background: none;
+  animation: none;
+  mix-blend-mode: normal;
+  opacity: 0;
 }
 
 .app-shell {
@@ -90,11 +89,10 @@ body::after {
   inset: -20% -10%;
   pointer-events: none;
   z-index: -1;
-  background: radial-gradient(circle, rgba(255, 233, 196, 0.3), transparent 55%);
-  mix-blend-mode: screen;
-  opacity: 0.2;
-  filter: none;
-  animation: driftLayer 26s linear infinite alternate;
+  background: none;
+  mix-blend-mode: normal;
+  opacity: 0;
+  animation: none;
 }
 
 .app-shell::after {
