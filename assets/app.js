@@ -1562,42 +1562,17 @@
       return stripped.split("·")[0].split("·")[0];
     };
 
-    const lazyThumbObserver =
-      typeof IntersectionObserver !== "undefined"
-        ? new IntersectionObserver((entries) => {
-            entries.forEach((entry) => {
-              if (!entry.isIntersecting) return;
-              const thumb = entry.target;
-              const src = thumb.dataset.src;
-              if (src) {
-                thumb.src = src;
-                thumb.dataset.loaded = "true";
-              }
-              lazyThumbObserver.unobserve(thumb);
-            });
-          })
-        : null;
-
-    const registerLazyThumbs = (container) => {
-      if (!container || !lazyThumbObserver) return;
-      container.querySelectorAll(".product-image-inner").forEach((img) => {
-        if (img.dataset.lazyBound === "true" || !img.dataset.src) return;
-        img.dataset.lazyBound = "true";
-        lazyThumbObserver.observe(img);
-      });
-    };
-
     const buildProductCard = (product, settings) => {
       const price = convertPrice(product.basePrice, settings);
       const baseWithFee = applyProductFee(product.basePrice);
       const wished = isWishlisted(product.id);
-      const tagRow = "";
-      const descMarkup = product.desc ? `<p class="product-desc">${product.desc}</p>` : "";
-      const palette = product.palette?.length ? product.palette : ["#2a2f45", "#374766", "#ffb347"];
       const images = getProductImages(product);
       const heroImage = images[0] || "";
       const highlightBadge = (product.tags && product.tags.length ? product.tags[0] : "New").toString().toUpperCase();
-      const overlayDesc = descMarkup ? `<p class="product-desc">${descMarkup}</p>` : "";
+      const displayName = escapeHtml(getDisplayName(product));
+      const imageMarkup = heroImage
+        ? `<img class="product-image-inner" src="${escapeHtml(heroImage)}" loading="eager" alt="${displayName}" />`
+        : "";
       return `
       <article class="card product-card ${wished ? "is-wish" : ""}" data-product-card data-id="${product.id}" tabindex="0">
         <button class="wish-btn ${wished ? "active" : ""}" type="button" data-wish="${product.id}" aria-pressed="${wished}" aria-label="${wished ? "Bỏ lưu" : "Lưu"}">
@@ -1607,10 +1582,10 @@
         </button>
         <div class="product-image">
           <span class="product-highlight-badge">${highlightBadge}</span>
-          <img class="product-image-inner" data-src="${heroImage}" alt="${getDisplayName(product)}" />
+          ${imageMarkup}
           <div class="product-image-gloss"></div>
           <div class="product-meta-overlay">
-            <h3 class="product-title">${getDisplayName(product)}</h3>
+            <h3 class="product-title">${displayName}</h3>
             <div class="price price-main">${formatCurrency(baseWithFee, settings.baseCurrency)}</div>
           </div>
         </div>
@@ -1655,7 +1630,6 @@
 
     bindProductCardNavigation(container);
     bindWishlistToggle(container);
-    registerLazyThumbs(container);
   };
 
   const SYNC_WARNING_ID = "shopSyncWarning";
@@ -1796,18 +1770,6 @@
       document.getElementById("homeSearchBtn"),
       "shop.html"
     );
-    const autoImportBtn = document.getElementById("autoImportBtn");
-    if (autoImportBtn) {
-      autoImportBtn.addEventListener("click", () => {
-        runAutoImport();
-      });
-    }
-    const backBtn = document.getElementById("backBtn");
-    if (backBtn) {
-      backBtn.addEventListener("click", () => {
-        window.history.back();
-      });
-    }
   };
 
   const renderAutoImportStatus = (status) => {
@@ -2894,6 +2856,13 @@
     </div>
   `;
 
+  const updateDashboardAutoImportHint = (stateLabel, detailLine) => {
+    const hintEl = document.getElementById("dashboardAutoImportHint");
+    if (!hintEl) return;
+    const detailSegment = detailLine ? ` · ${detailLine}` : "";
+    hintEl.textContent = `Auto import: ${stateLabel || "chưa khởi chạy"}${detailSegment}`;
+  };
+
   const renderAdminInsights = async (container) => {
     if (!container) return;
     const placeholder = `<div class="card soft admin-insight-card"><p>Đang thu thập dữ liệu...</p></div>`;
@@ -2921,6 +2890,8 @@
     const autoLogSnippet = autoImportPayload?.log
       ? autoImportPayload.log.split("\n").slice(-2).join(" / ")
       : "";
+    const autoHintText = [autoStatusHint, autoLogSnippet].filter(Boolean).join(" · ");
+    updateDashboardAutoImportHint(autoStatusLabel, autoHintText);
     const syncDisplay = syncTimestamp ? formatDateTime(syncTimestamp) : "Chưa sync";
     const syncHint = snapshot?.meta?.updatedAt
       ? `Đã cập nhật ${formatNumber(snapshot.products?.length || 0)} sản phẩm`
@@ -2949,7 +2920,7 @@
       {
         value: autoStatusLabel,
         label: "Auto-import",
-        hint: [autoStatusHint, autoLogSnippet].filter(Boolean).join(" · "),
+        hint: autoHintText,
       },
     ];
     container.innerHTML = cards.map(createAdminInsightCard).join("");
@@ -3018,6 +2989,26 @@
   const initAdminDashboard = () => {
     if (!requireAdminAuth()) return;
     bindAdminLogout();
+    const autoImportQuickBtn = document.getElementById("dashboardAutoImportRun");
+    const autoImportOpenBtn = document.getElementById("dashboardAutoImportOpen");
+    if (autoImportQuickBtn) {
+      autoImportQuickBtn.addEventListener("click", async () => {
+        autoImportQuickBtn.disabled = true;
+        try {
+          await runAutoImport();
+        } finally {
+          autoImportQuickBtn.disabled = false;
+          renderAdminInsights(document.getElementById("overviewStats")).catch((error) => {
+            console.error("Không thể làm mới insight sau auto import:", error);
+          });
+        }
+      });
+    }
+    if (autoImportOpenBtn) {
+      autoImportOpenBtn.addEventListener("click", () => {
+        window.location.href = "admin-settings.html#autoImport";
+      });
+    }
     renderStatusStats(document.getElementById("statusStats"));
     renderAdminInsights(document.getElementById("overviewStats")).catch((error) => {
       console.error("Không thể tải thông tin tổng quan admin:", error);

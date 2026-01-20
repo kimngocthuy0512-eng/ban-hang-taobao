@@ -732,6 +732,27 @@ textarea {
   color: var(--muted);
 }
 
+.auto-import-quick-panel {
+  padding: 1rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  box-shadow: 0 20px 35px rgba(4, 8, 20, 0.25);
+}
+
+.auto-import-quick-panel .helper {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.auto-import-quick-panel .segment {
+  justify-content: flex-start;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.4rem;
+}
+
 #productThumbs {
   grid-template-columns: repeat(3, 1fr);
 }
@@ -956,9 +977,11 @@ textarea {
   bottom: 0;
   right: 0;
   padding: 0.45rem 0.6rem;
-  background: rgba(10, 10, 12, 0.65);
-  backdrop-filter: blur(18px);
-  color: rgba(255, 255, 255, 0.88);
+  background: rgba(9, 9, 12, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(16px);
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.78);
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
@@ -978,7 +1001,7 @@ textarea {
 .product-meta-overlay .price {
   font-size: 0.85rem;
   gap: 0.35rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .product-meta-overlay .price-main {
