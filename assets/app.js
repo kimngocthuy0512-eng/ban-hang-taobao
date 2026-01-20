@@ -823,6 +823,119 @@
     if (meta) meta.textContent = `Đã cập nhật ${new Date().toLocaleTimeString("vi-VN")}`;
   };
 
+  const CUSTOMER_SECTION_IDS = ["adminNewCustomersList", "customerList"];
+
+  const renderAdminNewCustomers = (container, limit = 6) => {
+    if (!container) return;
+    const customers = Object.values(getCustomers());
+    if (!customers.length) {
+      container.innerHTML =
+        '<div class="card soft"><p>Chưa có khách hàng được ghi nhận trên hệ thống.</p></div>';
+      return;
+    }
+    const ordersList = getOrders();
+    const products = getProducts();
+    const settings = getSettings();
+    const sorted = customers
+      .slice()
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      .slice(0, limit);
+    const markup = sorted
+      .map((customer, index) => {
+        const customerOrders = ordersList.filter(
+          (entry) => entry.customerCode === customer.code
+        );
+        const orderTotals = customerOrders.map((order) =>
+          computeTotals(order, settings, products)
+        );
+        const totalAll = orderTotals.reduce((sum, totals) => sum + (totals.totalVND || 0), 0);
+        const totalPaid = customerOrders.reduce((sum, order, idx) => {
+          if (order.paymentStatus !== PAYMENT_STATUS.CONFIRMED) return sum;
+          return sum + (orderTotals[idx]?.totalVND || 0);
+        }, 0);
+        const outstanding = Math.max(0, totalAll - totalPaid);
+        const lastOrder =
+          customerOrders
+            .slice()
+            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0] || null;
+        const lastOrderLabel = lastOrder
+          ? `${lastOrder.code} · ${formatOrderStatus(lastOrder.status)}`
+          : "Chưa có đơn hàng";
+        const createdLabel = customer.createdAt
+          ? formatDateTime(customer.createdAt)
+          : "Không rõ thời gian";
+        const isFresh = index < 3;
+        return `
+          <article class="customer-card ${isFresh ? "customer-card--fresh" : ""}">
+            <div class="customer-card-head">
+              <div>
+                <strong>${customer.name || "Khách hàng"}</strong>
+                <span class="helper">${customer.phone || "Chưa có số điện thoại"}</span>
+              </div>
+              <div class="customer-card-head-meta">
+                <span class="helper">${createdLabel}</span>
+                <span class="badge">Mã ${customer.code}</span>
+              </div>
+            </div>
+            <div class="customer-card-stats">
+              <span>Đơn: ${customerOrders.length}</span>
+              <span>Đã TT: ${formatNumber(totalPaid)} ₫</span>
+              <span>Chưa TT: ${formatNumber(outstanding)} ₫</span>
+            </div>
+            <div class="customer-card-meta">
+              <span>${customer.fb || "Facebook chưa cập nhật"}</span>
+              <span class="helper">Mới nhất: ${lastOrderLabel}</span>
+            </div>
+            <div class="customer-card-actions">
+              <button class="btn ghost small" type="button" data-action="view-orders" data-code="${
+                customer.code
+              }">Danh sách đơn</button>
+              <button class="btn danger small" type="button" data-action="delete-customer" data-code="${
+                customer.code
+              }">Xóa khách</button>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+    container.innerHTML = markup;
+    bindCustomerSection(container);
+  };
+
+  const renderAllCustomerSections = () => {
+    CUSTOMER_SECTION_IDS.forEach((id) => {
+      renderAdminNewCustomers(document.getElementById(id));
+    });
+  };
+
+  const handleCustomerCardAction = (event) => {
+    const button = event.target.closest("[data-action]");
+    if (!button) return;
+    const action = button.dataset.action;
+    const code = button.dataset.code;
+    if (!code) return;
+    if (action === "delete-customer") {
+      if (!window.confirm(`Xóa khách ${code} khỏi hệ thống?`)) return;
+      const customers = getCustomers();
+      if (!customers[code]) return;
+      delete customers[code];
+      setCustomers(customers);
+      renderAllCustomerSections();
+      showOrderNotice(`Đã xóa khách hàng ${code}.`);
+      return;
+    }
+    if (action === "view-orders") {
+      window.location.href = `admin-orders.html?customer=${code}`;
+    }
+  };
+
+  const bindCustomerSection = (container) => {
+    if (!container) return;
+    if (container.dataset.customerBound === "1") return;
+    container.dataset.customerBound = "1";
+    container.addEventListener("click", handleCustomerCardAction);
+  };
+
   const confirmShipping = async (orderId) => {
     if (!orderId) return;
     try {
@@ -3501,6 +3614,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     if (orderRefreshBtn) {
       orderRefreshBtn.addEventListener("click", refreshOrders);
     }
+    renderAllCustomerSections();
   };
 
   const initAdminSettings = () => {
@@ -6884,91 +6998,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
   const initAdminCustomers = () => {
     if (!requireAdminAuth()) return;
     bindAdminLogout();
-    const customerList = document.getElementById("customerList");
-    if (!customerList) return;
-    const customersMap = getCustomers();
-    const ordersList = getOrders();
-    const products = getProducts();
-    const settings = getSettings();
-    const customersMarkup = Object.values(customersMap)
-      .map((customer) => {
-        const customerOrders = ordersList.filter(
-          (entry) => entry.customerCode === customer.code
-        );
-        const orderTotals = customerOrders.map((order) => computeTotals(order, settings, products));
-        const totalAll = orderTotals.reduce((sum, totals) => sum + totals.totalVND, 0);
-        const totalPaid = customerOrders.reduce((sum, order, index) => {
-          if (order.status !== STATUS.PAID) return sum;
-          return sum + orderTotals[index].totalVND;
-        }, 0);
-        const statementRows = customerOrders.length
-          ? customerOrders
-              .map((order, index) => {
-                const totals = orderTotals[index];
-                return `
-                  <tr>
-                    <td>${order.code}</td>
-                    <td>${formatDateTime(order.createdAt)}</td>
-                    <td>${formatOrderStatus(order.status)}</td>
-                    <td>${formatPaymentStatus(order.paymentStatus)}</td>
-                    <td>${formatNumber(totals.shipVND)}</td>
-                    <td>${formatNumber(totals.totalVND)}</td>
-                  </tr>
-                `;
-              })
-              .join("")
-          : `<tr><td colspan="6">Chưa có giao dịch.</td></tr>`;
-        const ordersMarkup = customerOrders.length
-          ? customerOrders
-              .map(
-                (order) => `
-                <div class="card soft">
-                  <div class="segment">
-                    <strong>${order.code}</strong>
-                    <span class="tag">${formatOrderStatus(order.status)}</span>
-                    <span class="tag">${formatPaymentStatus(order.paymentStatus)}</span>
-                  </div>
-                  ${renderOrderItems(order, products)}
-                </div>
-              `
-              )
-              .join("")
-          : "<span class=\"tag\">Chưa có đơn</span>";
-        return `
-          <div class="card">
-            <div class="segment">
-              <strong>${customer.code}</strong>
-              <span>${customer.name || "-"}</span>
-              <span class="tag">${customer.phone || "-"}</span>
-            </div>
-            <div class="segment">
-              <span class="tag">Tổng đơn: ${customerOrders.length}</span>
-              <span class="tag">Tổng dự kiến: ${formatNumber(totalAll)} VND</span>
-              <span class="tag">Đã thanh toán: ${formatNumber(totalPaid)} VND</span>
-              <span class="tag">${customer.fb || "Chưa có Facebook"}</span>
-            </div>
-            ${ordersMarkup}
-            <div class="statement">
-              <h4>Bảng sao kê</h4>
-              <div class="table-wrap">
-                <table class="table">
-                  <tr>
-                    <th>Mã đơn</th>
-                    <th>Ngày</th>
-                    <th>Trạng thái</th>
-                    <th>Thanh toán</th>
-                    <th>Ship (VND)</th>
-                    <th>Tổng (VND)</th>
-                  </tr>
-                  ${statementRows}
-                </table>
-              </div>
-            </div>
-          </div>
-        `;
-      })
-      .join("");
-    customerList.innerHTML = customersMarkup || "<p>Chưa có khách hàng.</p>";
+    renderAllCustomerSections();
   };
 
   const initAdminReports = () => {

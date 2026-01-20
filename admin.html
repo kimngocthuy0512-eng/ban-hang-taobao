@@ -42,65 +42,71 @@
     </header>
 
     <main class="app-shell admin-shell">
-      <section class="section reveal">
+      <section class="section reveal admin-hero">
         <div class="section-header">
-          <h2>Tổng quan trạng thái</h2>
+          <h2>Trung tâm điều hành Order Hub</h2>
           <div class="line"></div>
+          <p>Tập trung những thông tin quan trọng, đồng bộ dữ liệu và phản hồi khách hàng nhanh nhất.</p>
         </div>
-        <div class="status-summary-grid" id="overviewStats"></div>
-        <div class="grid-3" id="statusStats"></div>
-      </section>
-
-      <section class="section reveal">
-        <div class="section-header">
-          <h2>Auto import nhanh</h2>
-          <div class="line"></div>
-        </div>
-        <div class="auto-import-quick-panel">
-          <p>Chạy crawler, lấy sản phẩm mới từ Taobao mà không cần rời dashboard.</p>
-          <div class="segment">
-            <button class="btn primary" id="dashboardAutoImportRun" type="button">
-              Chạy auto import
-            </button>
-            <button class="btn ghost" id="dashboardAutoImportOpen" type="button">
-              Đến Auto import
-            </button>
+        <div class="admin-hero-grid">
+          <div class="hero-card hero-insight">
+            <div class="hero-card-header">
+              <h3>Bảng số liệu</h3>
+              <p>Tiếp cận nhanh trạng thái đơn hàng, doanh thu, sản phẩm và auto-import.</p>
+            </div>
+            <div class="status-summary-grid" id="overviewStats"></div>
           </div>
-          <p class="helper" id="dashboardAutoImportHint">Auto import: chưa khởi chạy.</p>
+          <div class="hero-card hero-auto">
+            <div class="hero-card-header">
+              <h3>Đồng bộ & hỗ trợ</h3>
+              <p>Kiểm soát crawler, tỷ giá và các hành động cần thiết mà không rời khỏi dashboard.</p>
+            </div>
+            <div class="segment hero-actions">
+              <button class="btn primary" id="dashboardAutoImportRun" type="button">
+                Chạy auto import
+              </button>
+              <button class="btn ghost" id="dashboardAutoImportOpen" type="button">
+                Mở Auto import
+              </button>
+            </div>
+            <p class="helper" id="dashboardAutoImportHint">Auto import: chưa khởi chạy.</p>
+          </div>
         </div>
-      </section>
-
-      <section class="section reveal">
-        <div class="section-header">
-          <h2>Lối tắt quản trị</h2>
-          <div class="line"></div>
-        </div>
-        <div class="card-grid admin-quick">
+        <div class="card-grid admin-quick hero-shortcuts">
           <a class="card admin-link" href="admin-products.html">
             <h3>Sản phẩm</h3>
-            <p>Danh sách + chỉnh sửa nhanh.</p>
+            <p>Quản lý kho và chỉnh sửa nhanh.</p>
           </a>
           <a class="card admin-link" href="admin-orders.html">
             <h3>Đơn hàng</h3>
-            <p>Danh sách + lọc trạng thái.</p>
+            <p>Đánh giá theo trạng thái và xử lý hàng tồn.</p>
           </a>
           <a class="card admin-link" href="admin-quotes.html">
             <h3>Báo giá</h3>
-            <p>Tính ship + kích hoạt mã thanh toán (mã đơn).</p>
+            <p>Nhập phí ship, cập nhật mã thanh toán.</p>
           </a>
           <a class="card admin-link" href="admin-payments.html">
             <h3>Thanh toán</h3>
-            <p>Xác nhận bill + cập nhật trạng thái.</p>
+            <p>Xác nhận bill và đánh dấu đã nhận.</p>
           </a>
           <a class="card admin-link" href="admin-tracking.html">
             <h3>Lộ trình</h3>
-            <p>Cập nhật ETA và trạng thái giao.</p>
+            <p>Định vị hàng, cập nhật ETA.</p>
           </a>
           <a class="card admin-link" href="admin-settings.html">
             <h3>Cấu hình</h3>
-            <p>Tỷ giá + đồng bộ dữ liệu.</p>
+            <p>Thanh toán, đồng bộ và quyền truy cập.</p>
           </a>
         </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Khách hàng mới nhất</h2>
+          <div class="line"></div>
+          <p>Ưu tiên hiển thị những khách hàng vừa đăng ký hoặc mới đặt đơn để bạn xử lý ngay.</p>
+        </div>
+        <div class="admin-new-customers" id="adminNewCustomersList"></div>
       </section>
 
       <section class="section reveal">

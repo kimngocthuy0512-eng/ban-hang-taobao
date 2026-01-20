@@ -268,6 +268,104 @@ textarea {
   padding-right: 0.25rem;
 }
 
+.admin-hero-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.hero-card {
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 1rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.hero-card-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.hero-card-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.hero-actions {
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.hero-shortcuts {
+  margin-top: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.admin-new-customers {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.customer-card {
+  padding: 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  display: grid;
+  gap: 0.4rem;
+}
+
+.customer-card--fresh {
+  border-color: rgba(96, 165, 250, 0.6);
+  box-shadow: 0 12px 24px rgba(96, 165, 250, 0.2);
+}
+
+.customer-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.customer-card-head-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.customer-card-head strong {
+  display: block;
+}
+
+.customer-card-stats {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+}
+
+.customer-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.customer-card .badge {
+  background: rgba(96, 165, 250, 0.15);
+  color: #0f172a;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+}
+
 .admin-item {
   display: grid;
   grid-template-columns: 56px 1fr auto;
