@@ -83,6 +83,28 @@
 
   const formatOrderStatus = (status) => STATUS_LABELS[status] || status || "-";
   const formatPaymentStatus = (status) => PAYMENT_STATUS_LABELS[status] || status || "-";
+  const PAYMENT_BADGE_CONFIG = {
+    [PAYMENT_STATUS.NOT_PAID]: { label: "Chưa thanh toán", class: "red" },
+    [PAYMENT_STATUS.BILL_SUBMITTED]: { label: "Bill đã gửi", class: "orange" },
+    [PAYMENT_STATUS.PAYMENT_UNDER_REVIEW]: { label: "Đang xác thực", class: "orange" },
+    [PAYMENT_STATUS.CONFIRMED]: { label: "Đã thanh toán", class: "green" },
+    [PAYMENT_STATUS.EXPIRED]: { label: "Mã hết hạn", class: "red" },
+    [PAYMENT_STATUS.REJECTED]: { label: "Đã từ chối", class: "red" },
+  };
+
+  const getOrderPaymentBadge = (order) => {
+    if (!order) return { label: "Không xác định", class: "" };
+    if (order.status === STATUS.CANCELLED) {
+      return { label: "Đã huỷ", class: "red" };
+    }
+    const expired = order.paymentExpiresAt && Date.now() > order.paymentExpiresAt;
+    if (expired && order.paymentStatus === PAYMENT_STATUS.NOT_PAID) {
+      return { label: "Mã hết hạn", class: "red" };
+    }
+    const badge = PAYMENT_BADGE_CONFIG[order.paymentStatus];
+    if (badge) return badge;
+    return { label: formatPaymentStatus(order.paymentStatus), class: "" };
+  };
 
   const DEFAULT_SETTINGS = {
     baseCurrency: "CNY",
@@ -1382,8 +1404,10 @@
   };
 
   const renderOrderItems = (order, products) => {
-    const items = Array.isArray(order.items) ? order.items : [];
+    const items = Array.isArray(order?.items) ? order.items : [];
     if (!items.length) return '<span class="tag">Không có sản phẩm.</span>';
+    const settings = getSettings();
+    const badge = getOrderPaymentBadge(order);
     const markup = items
       .map((item) => {
         const snapshot = getOrderItemSnapshot(item, products);
@@ -1392,7 +1416,6 @@
           ? `<img src="${snapshot.image}" alt="${snapshot.name}" loading="lazy" />`
           : `<span class="tag">${fallback}</span>`;
         const nameMarkup = `<strong>${snapshot.name}</strong>`;
-        const linkMarkup = "<span>Thông tin sản phẩm chỉ hiển thị trong hệ thống</span>";
         const detailParts = [
           snapshot.color ? `Màu ${snapshot.color}` : "",
           snapshot.size ? `Size ${snapshot.size}` : "",
@@ -1401,19 +1424,41 @@
         ]
           .filter(Boolean)
           .join(" · ");
+        const priceWithFee = applyProductFee(snapshot.basePrice);
+        const pricePerItemJPY = Math.round(priceWithFee * settings.rateJPY);
+        const pricePerItemVND = Math.round(priceWithFee * settings.rateVND);
+        const totalBase = priceWithFee * (snapshot.qty || 0);
+        const totalJPY = Math.round(totalBase * settings.rateJPY);
+        const totalVND = Math.round(totalBase * settings.rateVND);
         return `
-          <div class="order-item">
+          <div class="order-item-card">
             <div class="order-item-thumb">${thumb}</div>
-            <div class="order-item-meta">
-              ${nameMarkup}
-              <span>${detailParts}</span>
-              ${linkMarkup}
+            <div class="order-item-info">
+              <div class="order-item-meta">
+                ${nameMarkup}
+                <span>${detailParts}</span>
+              </div>
+              <div class="order-item-price">
+                <p><strong>${formatCurrency(priceWithFee, settings.baseCurrency)}</strong></p>
+                <p class="helper">JPY ${formatNumber(pricePerItemJPY)} · VND ${formatNumber(
+                  pricePerItemVND
+                )} / cái</p>
+              </div>
+              <div class="order-item-total">
+                <span><strong>Tổng:</strong> JPY ${formatNumber(totalJPY)} · VND ${formatNumber(
+                  totalVND
+                )}</span>
+              </div>
+            </div>
+            <div class="order-item-status">
+              <span class="status ${badge.class}">${badge.label}</span>
+              <p class="helper">Thanh toán & xác nhận sản phẩm</p>
             </div>
           </div>
         `;
       })
       .join("");
-    return `<div class="order-items">${markup}</div>`;
+    return `<div class="order-items-detailed">${markup}</div>`;
   };
 
   const renderCustomerOrderSections = () => {
