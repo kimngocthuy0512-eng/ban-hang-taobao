@@ -49,6 +49,7 @@
     CART: "CART",
     PENDING_QUOTE: "PENDING_QUOTE",
     QUOTED_WAITING_PAYMENT: "QUOTED_WAITING_PAYMENT",
+    SHIP_CONFIRMED: "SHIP_CONFIRMED",
     PAYMENT_UNDER_REVIEW: "PAYMENT_UNDER_REVIEW",
     PAID: "PAID",
     CANCELLED: "CANCELLED",
@@ -66,6 +67,7 @@
     [STATUS.CART]: "Giỏ hàng",
     [STATUS.PENDING_QUOTE]: "Chờ báo giá",
     [STATUS.QUOTED_WAITING_PAYMENT]: "Chờ thanh toán",
+    [STATUS.SHIP_CONFIRMED]: "Đã xác nhận phí ship",
     [STATUS.PAYMENT_UNDER_REVIEW]: "Đang xác nhận",
     [STATUS.PAID]: "Đã thanh toán",
     [STATUS.CANCELLED]: "Đã hủy",
@@ -995,6 +997,23 @@
 
   const getCustomers = () => readStore(KEYS.customers, {});
   const setCustomers = (customers) => writeStore(KEYS.customers, customers);
+  const getCustomerProfile = () => {
+    const code = getDeviceCustomerCode();
+    const customers = getCustomers();
+    return customers[code] || {};
+  };
+
+  const fillCheckoutFormWithProfile = () => {
+    const profile = getCustomerProfile();
+    const nameEl = document.getElementById("customerName");
+    const phoneEl = document.getElementById("customerPhone");
+    const addressEl = document.getElementById("customerAddress");
+    const fbEl = document.getElementById("customerFb");
+    if (nameEl && profile.name) nameEl.value = profile.name;
+    if (phoneEl && profile.phone) phoneEl.value = profile.phone;
+    if (addressEl && profile.address) addressEl.value = profile.address;
+    if (fbEl && profile.fb) fbEl.value = profile.fb;
+  };
 
   const getWishlist = () => readStore(KEYS.wishlist, []);
   const setWishlist = (items) => writeStore(KEYS.wishlist, items);
@@ -2667,6 +2686,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       `;
     };
 
+    fillCheckoutFormWithProfile();
     const orders = getOrders();
     renderSummary(orders[orders.length - 1]);
 
@@ -2739,6 +2759,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       updateCartBadge();
       renderSummary(order);
       form.reset();
+      fillCheckoutFormWithProfile();
       persistOrderToBackend(order);
     });
   };
@@ -2748,9 +2769,9 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const products = getProducts();
     const totals = computeTotals(order, settings, products);
     const expired = order.paymentExpiresAt && Date.now() > order.paymentExpiresAt;
-    const paymentGateOpen = Boolean(settings.paymentGateOpen);
-    const paymentBlocked = !paymentGateOpen;
-    const disablePayment = expired || paymentBlocked;
+    const shippingApproved = order.status === STATUS.SHIP_CONFIRMED;
+    const paymentBlocked = expired || !shippingApproved;
+    const disablePayment = paymentBlocked;
     const itemsMarkup = renderOrderItems(order, products);
     const timelineMarkup = renderTimeline(order);
     return `
@@ -2787,8 +2808,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         <div class="timeline">${timelineMarkup}</div>
       </div>
       ${
-        paymentBlocked
-          ? '<div class="card"><p class="alert">Cổng thanh toán đang đóng. Vui lòng chờ admin mở.</p></div>'
+        !shippingApproved
+          ? '<div class="card"><p class="alert">Thanh toán sẽ mở khi admin xác nhận phí ship. Vui lòng chờ thông báo.</p></div>'
           : ""
       }
       <div class="grid-2">
@@ -2818,7 +2839,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         }
         ${
           paymentBlocked
-            ? '<p class="alert">Thanh toán chỉ mở khi admin bật cổng thanh toán.</p>'
+            ? '<p class="alert">Thanh toán tạm thời khóa cho đến khi ship được xác nhận.</p>'
             : ""
         }
       </div>
