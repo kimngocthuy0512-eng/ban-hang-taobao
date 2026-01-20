@@ -83,6 +83,39 @@
 
   const formatOrderStatus = (status) => STATUS_LABELS[status] || status || "-";
   const formatPaymentStatus = (status) => PAYMENT_STATUS_LABELS[status] || status || "-";
+  const getMessengerSegment = (value) => {
+    if (!value) return "";
+    let normalized = String(value).trim();
+    if (!normalized) return "";
+    normalized = normalized.replace(/^https?:\/\//i, "");
+    normalized = normalized.replace(/^www\./i, "");
+    if (normalized.startsWith("m.me/")) {
+      normalized = normalized.slice(5);
+    }
+    if (normalized.startsWith("messenger.com/")) {
+      normalized = normalized.slice(17);
+    }
+    if (normalized.startsWith("facebook.com/")) {
+      normalized = normalized.slice(13);
+    }
+    normalized = normalized.split("?")[0].split("#")[0];
+    normalized = normalized.replace(/\/+$/, "");
+    return normalized.trim();
+  };
+  const getMessengerLink = (value) => {
+    const segment = getMessengerSegment(value);
+    if (!segment) return "";
+    return `https://m.me/${segment}`;
+  };
+  const notifyCustomerMessenger = (order) => {
+    if (!order) return "";
+    const link = getMessengerLink(order.customer?.fb);
+    if (!link) return "";
+    if (typeof window !== "undefined" && typeof window.open === "function") {
+      window.open(link, "_blank");
+    }
+    return link;
+  };
   const PAYMENT_BADGE_CONFIG = {
     [PAYMENT_STATUS.NOT_PAID]: { label: "Chưa thanh toán", class: "red" },
     [PAYMENT_STATUS.BILL_SUBMITTED]: { label: "Bill đã gửi", class: "orange" },
@@ -2944,25 +2977,34 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const products = getProducts();
     const totals = computeTotals(order, settings, products);
     const expired = order.paymentExpiresAt && Date.now() > order.paymentExpiresAt;
-    const shippingApproved = order.status === STATUS.SHIP_CONFIRMED;
-    const paymentBlocked = expired || !shippingApproved;
+    const quoteReady = Boolean(order.shipFee && !Number.isNaN(order.shipFee) && order.shipFee > 0);
+    const paymentGateActive = Boolean(settings.paymentGateOpen && quoteReady);
+    const paymentBlocked = expired || !paymentGateActive;
     const disablePayment = paymentBlocked;
     const itemsMarkup = renderOrderItems(order, products);
     const timelineMarkup = renderTimeline(order);
     const customerCode = order.customerCode || getDeviceCustomerCode();
-    const statusClass = expired ? "red" : shippingApproved ? "green" : "orange";
-    const statusLabel = expired
-      ? "Đã hết hạn"
-      : shippingApproved
-        ? "Ship đã xác nhận"
-        : "Đang xử lý";
+    const gateLabel = quoteReady ? "Cổng thanh toán mở" : "Cổng thanh toán tạm đóng";
+    const gateClass = quoteReady ? "green" : "orange";
+    const gateHint = quoteReady
+      ? `Ship: JPY ${formatNumber(totals.shipJPY)} · VND ${formatNumber(totals.shipVND)}`
+      : "Admin sẽ cập nhật giá ship và gửi tin nhắn Messenger khi có thông tin.";
+    const gateAlert = expired
+      ? "Mã đã hết hạn, vui lòng liên hệ admin để tạo lại mã thanh toán."
+      : !quoteReady
+      ? "Cổng thanh toán chỉ mở sau khi admin báo giá ship."
+      : !settings.paymentGateOpen
+      ? "Cổng đang đóng vì admin chưa bật cổng thanh toán."
+      : "";
+    const messengerNote = order.lastMessengerNotifiedAt
+      ? `Đã gửi Messenger lúc ${formatDateTime(order.lastMessengerNotifiedAt)}.`
+      : "Admin sẽ gửi Messenger thông báo.";
+    const statusClass = expired ? "red" : quoteReady ? "green" : "orange";
+    const statusLabel = expired ? "Đã hết hạn" : quoteReady ? "Cổng mở" : "Chờ báo giá";
     return `
       <div class="card">
         <div class="segment">
-          <div>
-            <p class="helper">Mã đơn</p>
-            <strong>${order.code}</strong>
-          </div>
+          <strong>Mã đơn:</strong> ${order.code}
           <span class="status ${statusClass}">${statusLabel}</span>
         </div>
         <div class="segment">
@@ -2995,6 +3037,13 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           <button class="btn ghost small" id="copyCustomerCode" type="button">Sao chép mã</button>
         </div>
       </div>
+      <div class="card gate-card">
+        <div class="gate-status">
+          <span class="status ${gateClass}">${gateLabel}</span>
+          <p class="helper">${gateHint}</p>
+          <p class="helper">${messengerNote}</p>
+        </div>
+      </div>
       <div class="card">
         <h4>Sản phẩm khách mua</h4>
         ${itemsMarkup}
@@ -3003,11 +3052,6 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         <h4>Tiến trình đơn hàng</h4>
         <div class="timeline">${timelineMarkup}</div>
       </div>
-      ${
-        !shippingApproved
-          ? '<div class="card soft"><p class="alert">Thanh toán sẽ mở khi admin xác nhận phí ship. Vui lòng chờ thông báo.</p></div>'
-          : ""
-      }
       <div class="grid-2">
         <div class="card soft">
           <h4>Chuyển khoản JP</h4>
@@ -3025,13 +3069,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         </div>
         <button class="btn primary" id="submitBill" type="button" ${disablePayment ? "disabled" : ""}>Gửi bill</button>
         ${
-          expired
-            ? '<p class="alert">Mã đã hết hạn, vui lòng liên hệ admin để tái tạo.</p>'
-            : ""
-        }
-        ${
-          paymentBlocked && !expired
-            ? '<p class="alert">Thanh toán tạm thời khóa cho đến khi ship được xác nhận.</p>'
+          gateAlert
+            ? `<p class="alert">${gateAlert}</p>`
             : ""
         }
       </div>
@@ -6652,6 +6691,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
     if (applyQuote) {
       applyQuote.addEventListener("click", () => {
+        let messengerLink = "";
         updateOrder((order) => {
           const feeValue = shipFee.value;
           if (feeValue === "") return;
@@ -6665,13 +6705,32 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           order.paymentStatus = PAYMENT_STATUS.NOT_PAID;
           order.billSubmitted = false;
           order.status = STATUS.QUOTED_WAITING_PAYMENT;
+          const settings = getSettings();
+          if (!settings.paymentGateOpen) {
+            settings.paymentGateOpen = true;
+            setSettings(settings);
+          }
           pushTimeline(order, {
             status: order.status,
             paymentStatus: order.paymentStatus,
             actor: "admin",
             message: `Đã báo giá ship ${fee} JPY.`,
           });
+          messengerLink = notifyCustomerMessenger(order);
+          if (messengerLink) {
+            order.lastMessengerLink = messengerLink;
+            order.lastMessengerNotifiedAt = Date.now();
+            pushTimeline(order, {
+              status: order.status,
+              paymentStatus: order.paymentStatus,
+              actor: "admin",
+              message: "Đã gửi tin nhắn Messenger thông báo phí ship.",
+            });
+          }
         });
+        if (!messengerLink) {
+          console.info("Không tìm thấy Facebook để gửi Messenger cho đơn", shipFee.value);
+        }
       });
     }
 
