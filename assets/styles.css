@@ -625,30 +625,37 @@ textarea {
   background: linear-gradient(90deg, rgba(255, 179, 71, 0.38), var(--line));
 }
 
-.checkout-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
+.checkout-form-section {
+  padding-bottom: 0;
 }
 
-@media (max-width: 1000px) {
-  .checkout-grid {
+.checkout-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
+  gap: 1.2rem;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .checkout-content {
     grid-template-columns: 1fr;
   }
 }
 
 .checkout-form {
   display: grid;
-  gap: 0.95rem;
-  padding: 1.2rem;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(255, 248, 237, 0.95));
+  gap: 0.8rem;
+  padding: 1rem 1.1rem 0.7rem;
+  background: rgba(255, 255, 255, 0.95);
   border-radius: var(--radius);
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  box-shadow: 0 20px 40px rgba(6, 10, 26, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 12px 24px rgba(6, 10, 26, 0.2);
+  min-height: 100%;
 }
 
 .checkout-form .form-grid {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.8rem;
 }
 
 .checkout-form .form-grid .field.full-width {
@@ -667,9 +674,23 @@ textarea {
   margin-bottom: 0;
 }
 
+.checkout-form .helper.small {
+  font-size: 0.78rem;
+  color: #6d5f54;
+}
+
 .checkout-summary-shell {
   display: grid;
   gap: 1rem;
+  position: sticky;
+  top: 1.1rem;
+}
+
+@media (max-width: 960px) {
+  .checkout-summary-shell {
+    position: static;
+    top: auto;
+  }
 }
 
 .checkout-summary-shell .card {
