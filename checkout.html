@@ -38,18 +38,37 @@
     </header>
 
     <main class="app-shell">
-      <section class="section reveal">
+      <section class="section reveal checkout-hero-section">
         <div class="section-header">
-          <h2>Bước 1 · Gửi đơn chờ báo giá</h2>
+          <h2>Khu vực đặt hàng tinh gọn</h2>
           <div class="line"></div>
+          <p>Loại bỏ sự rối mắt, chỉ giữ lại những yếu tố cần thiết để khách hoàn tất đặt cọc nhanh chóng.</p>
         </div>
-        <div class="stepper">
-          <div class="step active">1. Tạo đơn</div>
-          <div class="step">2. Báo giá ship</div>
-          <div class="step">3. Thanh toán</div>
+        <div class="checkout-hero">
+          <div>
+            <p class="helper">Giao diện mới mẻ · Trạng thái rõ ràng</p>
+            <h3>Không còn chi tiết dư thừa, mọi thay đổi đều theo dõi trên panel duy nhất.</h3>
+            <p>Phần thông tin khách hàng và tiến trình được đặt song song để dễ kiểm tra, tổng tiền được làm nổi bật, và phần còn lại làm mờ để tập trung vào hành động.</p>
+          </div>
+          <div class="checkout-pillars">
+            <div>
+              <strong>Minh bạch</strong>
+              <p class="helper">Mỗi bước đều có trạng thái, không cần mở thêm bảng khác.</p>
+            </div>
+            <div>
+              <strong>Gọn nhẹ</strong>
+              <p class="helper">Bỏ chi tiết đơn hàng, chỉ giữ tổng và trạng thái thanh toán.</p>
+            </div>
+            <div>
+              <strong>Chuyên nghiệp</strong>
+              <p class="helper">Vẻ ngoài tối giản nhưng tinh tế, phù hợp cả trên điện thoại.</p>
+            </div>
+          </div>
         </div>
-        <div class="grid-2">
-          <form class="card form-grid" id="checkoutForm">
+      </section>
+      <section class="section reveal checkout-form-section">
+        <div class="checkout-grid">
+          <form class="card checkout-form" id="checkoutForm">
             <div class="field">
               <label for="customerName">Họ tên</label>
               <input id="customerName" type="text" required />
@@ -69,7 +88,7 @@
             <button class="btn primary" type="submit">Gửi đơn chờ báo giá</button>
             <p class="badge orange">Đơn hàng chưa gồm phí ship. Vui lòng chờ báo giá.</p>
           </form>
-          <div id="checkoutSummary"></div>
+          <div class="checkout-summary-shell" id="checkoutSummary"></div>
         </div>
       </section>
     </main>

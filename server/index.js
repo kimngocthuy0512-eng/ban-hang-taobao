@@ -13,6 +13,7 @@ app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
 const PORT = process.env.PORT || 8787;
+const PUBLIC_DIR = path.join(__dirname, "..");
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 const BLOCKED_RE = /Access denied|访问被拒绝|安全验证|人机验证|验证码|请先登录|登录|security verification|请开启 JavaScript/i;
@@ -1566,6 +1567,8 @@ app.get("/events", (req, res) => {
     sseClients.delete(res);
   });
 });
+
+app.use(express.static(PUBLIC_DIR));
 
 app.listen(PORT, () => {
   console.log(`Importer running on http://localhost:${PORT}`);

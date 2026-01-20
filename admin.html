@@ -46,20 +46,21 @@
         <div class="section-header">
           <h2>Trung tâm điều hành Order Hub</h2>
           <div class="line"></div>
-          <p>Tập trung những thông tin quan trọng, đồng bộ dữ liệu và phản hồi khách hàng nhanh nhất.</p>
+          <p>Điều khiển mọi luồng dữ liệu, ưu tiên khách hàng mới và xử lý đơn hàng theo quy trình chuyên nghiệp.</p>
         </div>
-        <div class="admin-hero-grid">
-          <div class="hero-card hero-insight">
+        <div class="admin-control-grid">
+          <div class="hero-card hero-insight admin-hero-metrics">
             <div class="hero-card-header">
-              <h3>Bảng số liệu</h3>
-              <p>Tiếp cận nhanh trạng thái đơn hàng, doanh thu, sản phẩm và auto-import.</p>
+              <h3>Bảng số liệu trọng điểm</h3>
+              <p>Đơn hàng, doanh thu và kho đều nằm gọn trong một góc nhìn.</p>
             </div>
             <div class="status-summary-grid" id="overviewStats"></div>
+            <div class="status-stacked-grid" id="statusStats"></div>
           </div>
-          <div class="hero-card hero-auto">
+          <div class="hero-card hero-auto admin-hero-actions">
             <div class="hero-card-header">
-              <h3>Đồng bộ & hỗ trợ</h3>
-              <p>Kiểm soát crawler, tỷ giá và các hành động cần thiết mà không rời khỏi dashboard.</p>
+              <h3>Bảng điều khiển</h3>
+              <p>Thao tác nhanh cho auto-import, cổng thanh toán và liên lạc khách.</p>
             </div>
             <div class="segment hero-actions">
               <button class="btn primary" id="dashboardAutoImportRun" type="button">
@@ -70,50 +71,63 @@
               </button>
             </div>
             <p class="helper" id="dashboardAutoImportHint">Auto import: chưa khởi chạy.</p>
+            <div class="admin-control-meta">
+              <div>
+                <p class="helper">Cổng thanh toán</p>
+                <span class="status orange">Chờ giá ship</span>
+              </div>
+              <div>
+                <p class="helper">Thông báo Messenger</p>
+                <strong>Chuẩn bị gửi khi có giá mới</strong>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="card-grid admin-quick hero-shortcuts">
+        <div class="admin-shortcuts-grid">
           <a class="card admin-link" href="admin-products.html">
             <h3>Sản phẩm</h3>
-            <p>Quản lý kho và chỉnh sửa nhanh.</p>
+            <p>Nhanh chóng cập nhật kho và ưu tiên hàng mới.</p>
           </a>
           <a class="card admin-link" href="admin-orders.html">
             <h3>Đơn hàng</h3>
-            <p>Đánh giá theo trạng thái và xử lý hàng tồn.</p>
+            <p>Xử lý trạng thái, gắn tag ưu tiên và theo dõi tiến trình.</p>
           </a>
           <a class="card admin-link" href="admin-quotes.html">
             <h3>Báo giá</h3>
-            <p>Nhập phí ship, cập nhật mã thanh toán.</p>
+            <p>Nhập phí ship, tick mở cổng thanh toán ngay.</p>
           </a>
           <a class="card admin-link" href="admin-payments.html">
             <h3>Thanh toán</h3>
-            <p>Xác nhận bill và đánh dấu đã nhận.</p>
+            <p>Xác nhận bill nhanh và khoá cổng sau khi khách gửi.</p>
           </a>
           <a class="card admin-link" href="admin-tracking.html">
             <h3>Lộ trình</h3>
-            <p>Định vị hàng, cập nhật ETA.</p>
+            <p>Ánh xạ chuyến hàng và cập nhật ETA tức thì.</p>
           </a>
           <a class="card admin-link" href="admin-settings.html">
             <h3>Cấu hình</h3>
-            <p>Thanh toán, đồng bộ và quyền truy cập.</p>
+            <p>Quyền admin, sync và tích hợp.</p>
           </a>
         </div>
       </section>
 
-      <section class="section reveal">
+      <section class="section reveal admin-customers-section">
         <div class="section-header">
-          <h2>Khách hàng mới nhất</h2>
+          <h2>Khách hàng mới & ưu tiên</h2>
           <div class="line"></div>
-          <p>Ưu tiên hiển thị những khách hàng vừa đăng ký hoặc mới đặt đơn để bạn xử lý ngay.</p>
+          <p>Tập trung vào khách hàng mới, mỗi hành động xoá là vĩnh viễn và được phản hồi ngay.</p>
         </div>
         <div class="admin-new-customers" id="adminNewCustomersList"></div>
       </section>
 
-      <section class="section reveal">
+      <section class="section reveal admin-orders-section">
         <div class="section-header">
           <h2>Đơn hàng đang chờ duyệt</h2>
           <div class="line"></div>
-          <button class="btn ghost small" id="adminOrderRefresh" type="button">Làm mới</button>
+          <div class="segment admin-order-actions">
+            <button class="btn ghost small" id="adminOrderRefresh" type="button">Làm mới</button>
+            <span class="helper">Đồng bộ đơn từ backend, kéo thẳng vào bảng.</span>
+          </div>
         </div>
         <div class="grid-3" id="adminOrdersPanel"></div>
         <p class="helper" id="adminOrderRefreshMeta">Đang tải dữ liệu...</p>
