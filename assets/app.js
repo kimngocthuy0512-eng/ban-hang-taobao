@@ -107,11 +107,15 @@
     if (!segment) return "";
     return `https://m.me/${segment}`;
   };
-  const notifyCustomerMessenger = (order) => {
+  const notifyCustomerMessenger = (order, options = {}) => {
     if (!order) return "";
     const link = getMessengerLink(order.customer?.fb);
     if (!link) return "";
     if (typeof window !== "undefined" && typeof window.open === "function") {
+      if (options.redirect) {
+        window.location.assign(link);
+        return link;
+      }
       window.open(link, "_blank");
     }
     return link;
@@ -6716,7 +6720,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
             actor: "admin",
             message: `Đã báo giá ship ${fee} JPY.`,
           });
-          messengerLink = notifyCustomerMessenger(order);
+          messengerLink = notifyCustomerMessenger(order, { redirect: true });
           if (messengerLink) {
             order.lastMessengerLink = messengerLink;
             order.lastMessengerNotifiedAt = Date.now();
