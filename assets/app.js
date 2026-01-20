@@ -1003,6 +1003,28 @@
     return customers[code] || {};
   };
 
+  const getCustomerOrders = () => {
+    const customerCode = getDeviceCustomerCode();
+    return getOrders().filter((entry) => entry.customerCode === customerCode);
+  };
+
+  const copyCustomerCodeToClipboard = () => {
+    const button = document.getElementById("copyCustomerCode");
+    if (!button) return;
+    button.addEventListener("click", () => {
+      const code = getDeviceCustomerCode();
+      if (!code) return;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(code).then(
+          () => showOrderNotice("Mã khách đã được sao chép"),
+          () => showOrderNotice("Không thể sao chép mã khách")
+        );
+      } else {
+        showOrderNotice("Trình duyệt không hỗ trợ sao chép tự động.");
+      }
+    });
+  };
+
   const fillCheckoutFormWithProfile = () => {
     const profile = getCustomerProfile();
     const nameEl = document.getElementById("customerName");
@@ -1369,12 +1391,8 @@
         const thumb = snapshot.image
           ? `<img src="${snapshot.image}" alt="${snapshot.name}" loading="lazy" />`
           : `<span class="tag">${fallback}</span>`;
-        const nameMarkup = snapshot.productUrl
-          ? `<a href="${snapshot.productUrl}" target="_blank" rel="noopener">${snapshot.name}</a>`
-          : `<strong>${snapshot.name}</strong>`;
-        const linkMarkup = snapshot.productUrl
-          ? `<a href="${snapshot.productUrl}" target="_blank" rel="noopener">Mở link</a>`
-          : "<span>Chưa có link</span>";
+        const nameMarkup = `<strong>${snapshot.name}</strong>`;
+        const linkMarkup = "<span>Thông tin sản phẩm chỉ hiển thị trong hệ thống</span>";
         const detailParts = [
           snapshot.color ? `Màu ${snapshot.color}` : "",
           snapshot.size ? `Size ${snapshot.size}` : "",
@@ -1396,6 +1414,71 @@
       })
       .join("");
     return `<div class="order-items">${markup}</div>`;
+  };
+
+  const renderCustomerQuotePanel = (totals) => `
+    <div class="card">
+      <h4>Khung báo giá</h4>
+      <p><strong>Giá sản phẩm:</strong> ${formatNumber(totals.subtotalJPY)} ¥ / ${formatNumber(
+        totals.subtotalVND
+      )} ₫</p>
+      <p><strong>Ship ước tính:</strong> ${formatNumber(totals.shipJPY)} ¥ / ${formatNumber(
+        totals.shipVND
+      )} ₫</p>
+      <p><strong>Tổng:</strong> ${formatNumber(totals.totalJPY)} ¥ / ${formatNumber(
+        totals.totalVND
+      )} ₫</p>
+      <p class="helper">Lưu mã khách và mã đơn để tra cứu sau này.</p>
+    </div>
+  `;
+
+  const renderOrderStatusList = (orders) =>
+    orders
+      .map(
+        (entry) => `
+          <div class="segment">
+            <span><strong>${entry.id}</strong> · ${formatOrderStatus(entry.status)}</span>
+            <span>${new Date(entry.createdAt).toLocaleDateString("vi-VN")}</span>
+          </div>
+        `
+      )
+      .join("");
+
+  const renderCustomerOrderSections = () => {
+    const orders = getCustomerOrders();
+    const pending = orders.filter(
+      (entry) =>
+        entry.status !== STATUS.PAID &&
+        entry.status !== STATUS.CANCELLED &&
+        entry.status !== STATUS.SHIP_CONFIRMED
+    );
+    const confirmed = orders.filter((entry) => entry.status === STATUS.SHIP_CONFIRMED);
+    const paid = orders.filter((entry) => entry.status === STATUS.PAID);
+    return `
+      <div class="card soft">
+        <h4>Khung đơn chờ thanh toán</h4>
+        ${pending.length ? renderOrderStatusList(pending) : "<p class='helper'>Bạn chưa có đơn nào đang chờ thanh toán.</p>"}
+      </div>
+      <div class="card soft">
+        <h4>Khung đơn đã thanh toán</h4>
+        ${paid.length ? renderOrderStatusList(paid) : "<p class='helper'>Chưa có đơn nào ghi nhận thanh toán.</p>"}
+      </div>
+      <div class="card soft">
+        <h4>Khung tiến trình đặt hàng</h4>
+        ${confirmed.length ? renderOrderStatusList(confirmed) : "<p class='helper'>Chưa có đơn nào được xác nhận ship.</p>"}
+      </div>
+    `;
+  };
+
+  const renderCustomerCodeCard = (order) => {
+    const code = order?.customerCode || getDeviceCustomerCode();
+    return `
+      <div class="card soft">
+        <h4>Mã khách hàng</h4>
+        <p><strong>${code}</strong> · dùng mã này để tra cứu đơn sau này.</p>
+        <button class="btn ghost small" id="copyCustomerCode" type="button">Sao chép mã</button>
+      </div>
+    `;
   };
 
   const RANDOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -2843,6 +2926,9 @@ const computeTotals = (order, settings, products, overrides = {}) => {
             : ""
         }
       </div>
+      ${renderCustomerQuotePanel(totals)}
+      ${renderCustomerOrderSections()}
+      ${renderCustomerCodeCard(order)}
     `;
   };
 
@@ -2895,6 +2981,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         setOrders(orders);
       }
       result.innerHTML = renderPaymentResult(order);
+      copyCustomerCodeToClipboard();
     };
 
     lookup.addEventListener("click", handleLookup);
@@ -2948,6 +3035,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         });
         setOrders(orders);
         result.innerHTML = renderPaymentResult(order);
+        copyCustomerCodeToClipboard();
       };
       if (file.type.startsWith("image/")) {
         generateBillPreview(file).then((preview) => finalizeBill(preview));
