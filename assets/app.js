@@ -1682,15 +1682,11 @@
     return intersectionObserver; // Return the observer so it can be disconnected later
   };
 
-  const isAdminAuthenticated = () =>
-    sessionStore.getItem(KEYS.adminAuth) === "1" || store.getItem(KEYS.adminAuth) === "1";
-
   const bindProductCardNavigation = (container) => {
     if (!container || container.dataset.bound === "true") return;
     container.dataset.bound = "true";
     const navigate = (card) => {
       const id = card.dataset.id;
-      if (!isAdminAuthenticated()) return;
       if (id) window.location.href = `product.html?id=${id}`;
     };
     container.addEventListener("click", (event) => {
