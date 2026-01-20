@@ -70,6 +70,18 @@ body::after {
   animation: orbFloat 20s ease-in-out infinite;
 }
 
+.body-particles {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.02) 0, transparent 40%);
+  background-size: 150px 150px;
+  animation: particleDrift 30s linear infinite;
+  mix-blend-mode: screen;
+  opacity: 0.6;
+}
+
 .app-shell {
   position: relative;
   z-index: 1;
@@ -385,11 +397,13 @@ textarea {
   background: linear-gradient(135deg, #ffb347, #ff6b6b);
   color: #1c150c;
   box-shadow: 0 16px 32px rgba(255, 179, 71, 0.22);
+  animation: btnGlow 6s ease-in-out infinite;
 }
 
 .btn.secondary {
   background: linear-gradient(135deg, #60a5fa, #f472b6);
   color: #0f1017;
+  animation: btnGlow 7s ease-in-out infinite alternate;
 }
 
 .btn.ghost {
@@ -2130,6 +2144,15 @@ body[data-page="product"] .emergency {
   }
 }
 
+@keyframes particleDrift {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: -150px -150px;
+  }
+}
+
 @keyframes cartPulse {
   0% {
     transform: scale(1);
@@ -2139,6 +2162,18 @@ body[data-page="product"] .emergency {
   }
   100% {
     transform: scale(1);
+  }
+}
+
+@keyframes btnGlow {
+  0% {
+    box-shadow: 0 10px 25px rgba(255, 179, 71, 0.1);
+  }
+  50% {
+    box-shadow: 0 20px 40px rgba(255, 179, 71, 0.35);
+  }
+  100% {
+    box-shadow: 0 10px 25px rgba(255, 179, 71, 0.1);
   }
 }
 
