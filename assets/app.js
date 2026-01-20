@@ -3193,8 +3193,14 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           message: "Khách đã upload bill chuyển khoản.",
         });
         setOrders(orders);
+        const updatedSettings = getSettings();
+        if (updatedSettings.paymentGateOpen) {
+          updatedSettings.paymentGateOpen = false;
+          setSettings(updatedSettings);
+        }
         renderActivity();
-        openOrderDetail(order);
+        closeOrderDetail();
+        showOrderNotice("Thanh toán đã được xác nhận, cổng thanh toán đã đóng.");
       };
       if (file.type.startsWith("image/")) {
         generateBillPreview(file).then((preview) => finalizeBill(preview));
