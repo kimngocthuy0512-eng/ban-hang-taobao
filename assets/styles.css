@@ -1985,6 +1985,47 @@ textarea {
   font-size: 0.85rem;
 }
 
+.payment-basic-info {
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  display: grid;
+  gap: 0.4rem;
+}
+
+.payment-basic-info .segment {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.payment-basic-info .segment.compact {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+}
+
+.total-glow {
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(255, 179, 71, 0.25), rgba(96, 165, 250, 0.18));
+  border: 1px solid var(--accent);
+  padding: 1rem 1.1rem;
+  text-align: left;
+}
+
+.total-glow strong {
+  font-size: 1.6rem;
+  display: block;
+  color: #1f2937;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.total-glow span {
+  font-size: 1rem;
+  color: var(--muted);
+}
+
 .history-card-items {
   display: grid;
   gap: 0.6rem;

@@ -3006,46 +3006,29 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const statusClass = expired ? "red" : quoteReady ? "green" : "orange";
     const statusLabel = expired ? "Đã hết hạn" : quoteReady ? "Cổng mở" : "Chờ báo giá";
     return `
-      <div class="card">
+      <div class="card payment-basic-info">
         <div class="segment">
-          <strong>Mã đơn:</strong> ${order.code}
+          <div>
+            <p class="helper">Mã đơn</p>
+            <strong>${order.code}</strong>
+          </div>
           <span class="status ${statusClass}">${statusLabel}</span>
         </div>
-        <div class="segment">
-          <p><strong>Trạng thái đơn:</strong> ${formatOrderStatus(order.status)}</p>
+        <div class="segment compact">
+          <p><strong>Trạng thái:</strong> ${formatOrderStatus(order.status)}</p>
           <p><strong>Thanh toán:</strong> ${formatPaymentStatus(order.paymentStatus)}</p>
           <p><strong>Mã thanh toán:</strong> ${order.paymentCode || order.code}</p>
-          <p><strong>Ngày tạo:</strong> ${formatDateTime(order.createdAt)}</p>
         </div>
-        <div class="grid-3 status-summary-grid">
-          <div>
-            <p class="helper">Giá trị sản phẩm</p>
-            <strong>${formatCurrency(totals.subtotalBase, settings.baseCurrency)}</strong>
-            <p class="helper">
-              JPY ${formatNumber(totals.subtotalJPY)} · VND ${formatNumber(totals.subtotalVND)}
-            </p>
-          </div>
-          <div>
-            <p class="helper">Phí ship</p>
-            <strong>JPY ${formatNumber(totals.shipJPY)}</strong>
-            <p class="helper">VND ${formatNumber(totals.shipVND)}</p>
-          </div>
-          <div>
-            <p class="helper">Tổng cần thanh toán</p>
-            <strong>JPY ${formatNumber(totals.totalJPY)}</strong>
-            <p class="helper">VND ${formatNumber(totals.totalVND)}</p>
-          </div>
-        </div>
-        <div class="segment">
-          <span><strong>Mã khách:</strong> ${customerCode}</span>
-          <button class="btn ghost small" id="copyCustomerCode" type="button">Sao chép mã</button>
-        </div>
+      </div>
+      <div class="card total-glow">
+        <p class="helper">Tổng khách cần trả</p>
+        <strong>JPY ${formatNumber(totals.totalJPY)}</strong>
+        <span>VND ${formatNumber(totals.totalVND)}</span>
       </div>
       <div class="card gate-card">
         <div class="gate-status">
           <span class="status ${gateClass}">${gateLabel}</span>
           <p class="helper">${gateHint}</p>
-          <p class="helper">${messengerNote}</p>
         </div>
       </div>
       <div class="card">
