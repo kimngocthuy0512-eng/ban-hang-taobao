@@ -39,107 +39,27 @@
       </div>
     </header>
 
-    <main class="app-shell">
-      <section class="hero reveal">
-        <div class="hero-glow-bar"></div>
-        <div class="hero-grid">
-          <span class="pill">TMĐT Taobao · Báo giá ship sau</span>
-          <h1>Đặt hàng Taobao gọn nhẹ, báo giá ship sau.</h1>
-          <p>3 bước: chọn sản phẩm → gửi đơn → thanh toán chuyển khoản JP/VN.</p>
-          <div class="hero-note">
-            <span class="badge">Mobile-first</span>
-          </div>
-          <div class="hero-search">
-            <input id="homeSearch" type="search" placeholder="Tìm nhanh tên sản phẩm..." />
-            <button class="btn ghost small" id="homeSearchBtn" type="button">Tìm</button>
-          </div>
+    <main class="home-shell ecommerce-shell">
+      <section class="hero ecom-hero">
+        <div class="hero-media">
+          <div class="hero-tag">Taobao · Order Hub</div>
+          <h1>Trang Oder Taobao nhận hàng từ 7 - 10 ngày</h1>
+          <p>Đặt đơn trong vài giây, admin phản hồi Messenger và tỷ giá luôn hiển thị.</p>
           <div class="hero-actions">
-            <a class="btn primary" href="shop.html">Bắt đầu mua sắm</a>
-            <a class="btn secondary" href="payment.html">Tra cứu thanh toán</a>
-            <!-- Auto import & back button moved to admin dashboard -->
+            <a class="btn primary" href="shop.html">Khám phá</a>
+            <a class="btn ghost" href="checkout.html">Gửi đơn</a>
           </div>
         </div>
       </section>
 
-      <section class="section reveal">
-        <div class="section-header">
-          <h2>Tỷ giá trực tiếp</h2>
-          <div class="line"></div>
-          <span class="badge orange">Base → JPY/VND</span>
-        </div>
-        <div class="grid-2" id="homeRates"></div>
-      </section>
-
-      <section class="section reveal">
-        <div class="section-header">
-          <h2>Trợ lý mua nhanh</h2>
-          <div class="line"></div>
-          <span class="badge orange">Siêu tốc</span>
-        </div>
-        <div class="card-grid">
-          <div class="feature-card">
-            <div class="icon">01</div>
-            <h4>Dán link Taobao</h4>
-            <p>Lấy nhanh thông tin, chỉnh giá và size trước khi thêm vào giỏ.</p>
-          </div>
-          <div class="feature-card">
-            <div class="icon">02</div>
-            <h4>Tra cứu thanh toán</h4>
-            <p>Nhập mã đơn để xem tổng, phương thức chuyển khoản JP/VN.</p>
-          </div>
-          <div class="feature-card">
-            <div class="icon">03</div>
-            <h4>Theo dõi trạng thái</h4>
-            <p>Nhận thông báo khi báo giá, xác nhận thanh toán và vận chuyển.</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="section reveal">
-        <div class="section-header">
-          <h2>Hướng dẫn đặt hàng (gọn gàng)</h2>
-          <div class="line"></div>
-          <span class="badge">Thu gọn / phóng to</span>
-        </div>
-        <div class="guide-grid">
-          <details class="guide-card" open>
-            <summary>
-              <span class="guide-step">01</span>
-              <strong>Chọn sản phẩm</strong>
-              <span class="tag">Shop / Taobao</span>
-            </summary>
-            <p>Chọn size, thêm giỏ, giá hiển thị quy đổi JPY/VND.</p>
-          </details>
-          <details class="guide-card">
-            <summary>
-              <span class="guide-step">02</span>
-              <strong>Gửi đơn chờ báo giá</strong>
-              <span class="tag">Tạo mã đơn + mã khách</span>
-            </summary>
-            <p>Điền thông tin nhận hàng, hệ thống tạo mã đơn và chờ admin báo phí ship.</p>
-          </details>
-          <details class="guide-card">
-            <summary>
-              <span class="guide-step">03</span>
-              <strong>Thanh toán & theo dõi</strong>
-              <span class="tag">Mã thanh toán = mã đơn</span>
-            </summary>
-            <p>Nhập mã đơn để xem tổng, chuyển khoản JP/VN và upload bill.</p>
-          </details>
-        </div>
-      </section>
-
-      <section class="section reveal">
-        
-
-
+      <section class="featured-products">
         <div class="section-header">
           <h2>Sản phẩm nổi bật</h2>
-          <div class="line"></div>
           <span class="badge">Compact grid</span>
         </div>
         <div class="product-grid" id="featuredGrid" data-view="compact"></div>
       </section>
+
     </main>
 
     <a class="emergency" data-emergency href="#">Liên hệ khẩn cấp</a>

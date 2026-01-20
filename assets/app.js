@@ -2406,8 +2406,17 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       "Không thể kết nối backend để lấy dữ liệu sản phẩm. Hiển thị catalog mẫu và kiểm tra cài đặt Sync/Render.";
     let syncFailed = false;
     clearSyncWarning();
+    const PRODUCTS_PER_PAGE = 12; // batch size used for both teaser and infinite scroll
+    let allFilteredProducts = [];
+    let productsRendered = 0;
+    let infiniteScrollObserver = null;
+    let viewMode = store.getItem(KEYS.viewMode) || "grid";
     if (grid) {
       grid.innerHTML = '<div class="card empty-state">Đang tải sản phẩm từ server...</div>';
+      const teaserProducts = getProducts().slice(0, PRODUCTS_PER_PAGE);
+      if (teaserProducts.length) {
+        renderProductGrid(teaserProducts, grid, viewMode);
+      }
     }
 
     try {
@@ -2432,12 +2441,6 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const resultCount = document.getElementById("resultCount");
     const clearFiltersBtn = document.getElementById("clearFilters");
 
-    const PRODUCTS_PER_PAGE = 12; // Define how many products to load per batch
-    let allFilteredProducts = []; // Store the full list of filtered products
-    let productsRendered = 0; // Keep track of how many products have been rendered
-    let infiniteScrollObserver = null; // Store the Intersection Observer instance
-
-    let viewMode = store.getItem(KEYS.viewMode) || "grid";
     const params = new URLSearchParams(window.location.search);
     const query = params.get("q");
     if (query) searchInput.value = query;
@@ -2966,125 +2969,69 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
   const initCheckout = () => {
     const form = document.getElementById("checkoutForm");
-    const summary = document.getElementById("checkoutSummary");
+    const guidance = document.getElementById("checkoutGuidance");
+    const formAlert = document.getElementById("checkoutFormAlert");
+    const modal = document.getElementById("orderConfirmModal");
+    const modalClose = document.getElementById("orderConfirmClose");
 
-    const renderSummary = (order) => {
-      if (!order) {
-        summary.innerHTML =
-          '<div class="card soft"><p>Chưa có đơn. Vui lòng gửi form đặt hàng.</p></div>';
-        return;
-      }
-      const settings = getSettings();
-      const products = getProducts();
-      const totals = computeTotals(order, settings, products);
-      const hasShipFee = Boolean(order.shipFee && !Number.isNaN(order.shipFee) && order.shipFee > 0);
-      const paymentSettled = order.paymentStatus === PAYMENT_STATUS.CONFIRMED;
-      const steps = [
-        {
-          label: "Đơn hàng đã gửi",
-          active: !hasShipFee,
-        },
-        {
-          label: "Đã báo giá ship",
-          active: hasShipFee && !paymentSettled,
-        },
-        {
-          label: "Đã thanh toán",
-          active: paymentSettled,
-        },
-      ];
-      const stepsMarkup = steps
-        .map(
-          (step) => `
-            <div class="checkout-summary-step ${step.active ? "active" : ""}">
-              <span class="marker"></span>
-              <span>${step.label}</span>
-            </div>
-          `
-        )
-        .join("");
-      const metrics = [
-        {
-          label: "Sản phẩm",
-          value: `${(order.items?.length || 0)} mục`,
-        },
-        {
-          label: "Ship hiện tại",
-          value: hasShipFee ? `JPY ${formatNumber(order.shipFee)}` : "Chờ cập nhật",
-        },
-        {
-          label: "Khách hàng",
-          value: order.customer?.name || "-",
-        },
-        {
-          label: "Đã tạo lúc",
-          value: order.createdAt ? formatDateTime(order.createdAt) : "-",
-        },
-      ];
-      const metricsMarkup = metrics
-        .map(
-          (metric) => `
-            <div class="checkout-summary-metric">
-              <span class="helper">${metric.label}</span>
-              <strong>${metric.value}</strong>
-            </div>
-          `
-        )
-        .join("");
-      const supportFbLink = order.shipping?.fb
-        ? order.shipping.fb.startsWith("http")
-          ? order.shipping.fb
-          : `https://facebook.com/${order.shipping.fb.replace(/^https?:\/\//, "")}`
-        : "";
-      summary.innerHTML = `
-        <div class="checkout-summary-card card">
-          <div class="segment">
-            <p class="helper">Trạng thái tổng quan</p>
-            <strong>${formatOrderStatus(order.status)}</strong>
-            <p class="helper">Thanh toán: ${formatPaymentStatus(order.paymentStatus)}</p>
-          </div>
-          <div class="checkout-total-highlight">
-            <p class="helper">Tổng khách cần trả</p>
-            <strong>JPY ${formatNumber(totals.totalJPY)}</strong>
-            <span>VND ${formatNumber(totals.totalVND)}</span>
-          </div>
-          <div class="checkout-summary-steps">
-            ${stepsMarkup}
-          </div>
-          <div class="card soft">
-            <p class="helper">Khi admin nhập phí ship, cổng thanh toán mở và bạn sẽ nhận thông báo.</p>
-          </div>
+    const renderGuidance = () => {
+      if (!guidance) return;
+      guidance.innerHTML = `
+        <div class="guidance-card">
+          <h4>Đơn đặt hàng chuyên nghiệp</h4>
+          <p>Chúng tôi chỉ cần tên, số điện thoại, địa chỉ và link Facebook.</p>
+          <p class="helper small">
+            Những dữ liệu này được ghi nhận tức thì để đội ngũ Order gọi/viber Messenger
+            xác nhận và lên lịch xử lý trong vài phút.
+          </p>
         </div>
-        <div class="checkout-summary-card card">
-          <p class="helper">Những chỉ số cần quan tâm</p>
-          <div class="checkout-summary-metrics">
-            ${metricsMarkup}
-          </div>
-        </div>
-        <div class="checkout-summary-card card checkout-support-card">
-          <p class="helper">Hành động tiếp theo</p>
-          <p>Chờ admin xác nhận và nhắn tin Messenger tới bạn.</p>
-          <p><strong>Hãy kiểm tra Facebook:</strong> ${
-            supportFbLink
-              ? `<a href="${supportFbLink}" target="_blank" rel="noreferrer">Mở ngay</a>`
-              : "Chưa có liên kết"
-          }</p>
-          <p class="helper">Xem tình trạng thanh toán khi một bước được tô sáng.</p>
+        <div class="guidance-card">
+          <h4>Admin phản hồi chủ động</h4>
+          <ul>
+            <li>Đọc đơn, kiểm tra link sản phẩm và chuẩn bị báo phí ship.</li>
+            <li>Nếu cần bổ sung, admin sẽ nhắn trực tiếp qua Facebook Messenger.</li>
+            <li>Sau khi xác nhận, bạn nhận tin nhắn và tiến hành thanh toán.</li>
+          </ul>
         </div>
       `;
     };
 
-    fillCheckoutFormWithProfile();
-    const orders = getOrders();
-    renderSummary(orders[orders.length - 1]);
+    const setFormAlert = (message, isError = false) => {
+      if (!formAlert) return;
+      formAlert.textContent = message;
+      formAlert.classList.toggle("alert", isError && Boolean(message));
+    };
 
-    form.addEventListener("submit", (event) => {
+    const showConfirmationModal = () => {
+      if (!modal) return;
+      modal.setAttribute("aria-hidden", "false");
+      modal.classList.add("active");
+    };
+
+    const hideConfirmationModal = () => {
+      if (!modal) return;
+      modal.setAttribute("aria-hidden", "true");
+      modal.classList.remove("active");
+    };
+
+    const handleModalClick = (event) => {
+      if (event.target === modal) {
+        hideConfirmationModal();
+      }
+    };
+
+    renderGuidance();
+    setFormAlert("");
+    fillCheckoutFormWithProfile();
+
+    form?.addEventListener("submit", (event) => {
       event.preventDefault();
       const cart = getCart();
       if (!cart.length) {
-        summary.innerHTML = "<div class=\"alert\">Giỏ hàng trống, chưa thể tạo đơn.</div>";
+        setFormAlert("Giỏ hàng trống, chưa thể tạo đơn.", true);
         return;
       }
+      setFormAlert("");
       const products = getProducts();
       const payload = {
         name: document.getElementById("customerName").value.trim(),
@@ -3145,11 +3092,14 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       setOrders(ordersList);
       setCart([]);
       updateCartBadge();
-      renderSummary(order);
       form.reset();
       fillCheckoutFormWithProfile();
       persistOrderToBackend(order);
+      showConfirmationModal();
     });
+
+    modal?.addEventListener("click", handleModalClick);
+    modalClose?.addEventListener("click", hideConfirmationModal);
   };
 
   const renderPaymentResult = (order) => {

@@ -40,46 +40,81 @@
     <main class="app-shell">
       <section class="section reveal checkout-form-section">
         <div class="section-header">
-          <h2>Đơn đặt cọc tinh gọn</h2>
+          <h2>Thông tin đặt hàng chuyên nghiệp</h2>
           <div class="line"></div>
-          <p>Thông tin tối giản, xử lý ngay — chỉ tên, số, địa chỉ và Facebook.</p>
+          <p>Điền tên, điện thoại, địa chỉ và Facebook — sau đó hệ thống báo giá ngay.</p>
         </div>
         <div class="checkout-content">
-          <form class="card checkout-form" id="checkoutForm">
-            <div class="form-grid">
-              <div class="field">
-                <label for="customerName">Họ tên *</label>
-                <input id="customerName" type="text" placeholder="Nguyễn Văn A" required />
+          <div class="checkout-info-area">
+            <form class="card checkout-form" id="checkoutForm">
+              <div class="form-alert" id="checkoutFormAlert" role="status" aria-live="polite"></div>
+              <div class="form-heading">
+                <h4>Thông tin liên hệ</h4>
+                <p>Đảm bảo chính xác để admin có thể gọi và nhắn Messenger khi cần.</p>
               </div>
-              <div class="field">
-                <label for="customerPhone">Số điện thoại *</label>
-                <input id="customerPhone" type="tel" placeholder="0900123456" required />
+              <div class="form-grid">
+                <div class="field">
+                  <label for="customerName">Họ tên *</label>
+                  <input id="customerName" type="text" placeholder="Nguyễn Văn A" required />
+                </div>
+                <div class="field">
+                  <label for="customerPhone">Số điện thoại *</label>
+                  <input id="customerPhone" type="tel" placeholder="0900123456" required />
+                </div>
+                <div class="field full-width">
+                  <label for="customerAddress">Địa chỉ nhận hàng *</label>
+                  <textarea id="customerAddress" rows="2" placeholder="Số nhà, đường, quận/huyện" required></textarea>
+                </div>
+                <div class="field full-width">
+                  <label for="customerFb">Facebook liên hệ *</label>
+                  <input
+                    id="customerFb"
+                    type="text"
+                    placeholder="https://facebook.com/..."
+                    required
+                  />
+                </div>
               </div>
-              <div class="field full-width">
-                <label for="customerAddress">Địa chỉ nhận hàng *</label>
-                <textarea id="customerAddress" rows="2" placeholder="Số nhà, đường, quận/huyện" required></textarea>
+              <div class="form-actions">
+                <button class="btn primary" type="submit">Gửi đơn chờ báo giá</button>
+                <p class="helper small">
+                  Sau khi gửi, admin sẽ báo xác nhận qua Messenger, bạn kiểm tra và thanh toán nhé.
+                </p>
               </div>
-              <div class="field full-width">
-                <label for="customerFb">Facebook liên hệ *</label>
-                <input
-                  id="customerFb"
-                  type="text"
-                  placeholder="https://facebook.com/..."
-                  required
-                />
-              </div>
-            </div>
-            <div class="form-actions">
-              <button class="btn primary" type="submit">Gửi đơn chờ báo giá</button>
+            </form>
+          </div>
+          <aside class="checkout-summary-shell" id="checkoutGuidance">
+            <div class="guidance-card">
+              <h4>Mục đặt hàng chuyên nghiệp</h4>
+              <p>Chỉ giữ lại 4 trường cần thiết: tên, số điện thoại, địa chỉ và Facebook liên hệ.</p>
               <p class="helper small">
-                Admin sẽ vào Messenger để báo phí và phương thức chuyển tiếp theo.
+                Hệ thống ghi nhận tức thì, admin sẽ kiểm tra thông tin, đối chiếu đơn hàng và phản hồi
+                ngay trong vòng vài phút.
               </p>
             </div>
-          </form>
-          <aside class="checkout-summary-shell" id="checkoutSummary"></aside>
+            <div class="guidance-card">
+              <h4>Admin xác nhận tiêu chuẩn cao</h4>
+              <ul>
+                <li>Quản lý order tập trung để tránh sót thông tin.</li>
+                <li>Facebook Messenger là kênh chính để gửi thông báo và yêu cầu thanh toán.</li>
+                <li>Giữ liên lạc chủ động: nếu cần bổ sung, admin sẽ nhắn lại hoặc gọi.</li>
+              </ul>
+            </div>
+          </aside>
         </div>
       </section>
     </main>
+
+    <div class="order-confirm-modal" id="orderConfirmModal" aria-hidden="true">
+      <div class="modal-panel">
+        <strong>Đơn hàng của bạn đã được tiếp nhận.</strong>
+        <p>
+          Admin sẽ báo xác nhận về Messenger của bạn. Sau khi nhận được tin nhắn, vui lòng tiến hành
+          thanh toán. Xin cảm ơn.
+        </p>
+        <button class="btn ghost small" type="button" id="orderConfirmClose">Đã rõ</button>
+      </div>
+    </div>
 
     <a class="emergency" data-emergency href="#">Liên hệ khẩn cấp</a>
 
