@@ -38,55 +38,65 @@
     </header>
 
     <main class="app-shell">
-      <section class="section reveal checkout-hero-section">
-        <div class="section-header">
-          <h2>Khu vực đặt hàng tinh gọn</h2>
-          <div class="line"></div>
-          <p>Loại bỏ sự rối mắt, chỉ giữ lại những yếu tố cần thiết để khách hoàn tất đặt cọc nhanh chóng.</p>
-        </div>
-        <div class="checkout-hero">
-          <div>
-            <p class="helper">Giao diện mới mẻ · Trạng thái rõ ràng</p>
-            <h3>Không còn chi tiết dư thừa, mọi thay đổi đều theo dõi trên panel duy nhất.</h3>
-            <p>Phần thông tin khách hàng và tiến trình được đặt song song để dễ kiểm tra, tổng tiền được làm nổi bật, và phần còn lại làm mờ để tập trung vào hành động.</p>
-          </div>
-          <div class="checkout-pillars">
-            <div>
-              <strong>Minh bạch</strong>
-              <p class="helper">Mỗi bước đều có trạng thái, không cần mở thêm bảng khác.</p>
-            </div>
-            <div>
-              <strong>Gọn nhẹ</strong>
-              <p class="helper">Bỏ chi tiết đơn hàng, chỉ giữ tổng và trạng thái thanh toán.</p>
-            </div>
-            <div>
-              <strong>Chuyên nghiệp</strong>
-              <p class="helper">Vẻ ngoài tối giản nhưng tinh tế, phù hợp cả trên điện thoại.</p>
-            </div>
-          </div>
-        </div>
-      </section>
       <section class="section reveal checkout-form-section">
+        <div class="section-header">
+          <h2>Xác nhận thông tin đặt cọc</h2>
+          <div class="line"></div>
+          <p>Điền đầy đủ dữ liệu để đội ngũ xử lý nhanh chóng, tránh hỏi lại thông tin cơ bản.</p>
+        </div>
         <div class="checkout-grid">
           <form class="card checkout-form" id="checkoutForm">
-            <div class="field">
-              <label for="customerName">Họ tên</label>
-              <input id="customerName" type="text" required />
+            <div class="form-grid">
+              <div class="field">
+                <label for="orderReference">Mã đơn tham chiếu (nếu có)</label>
+                <input id="orderReference" type="text" placeholder="VD: ORD-20250123" />
+              </div>
+              <div class="field">
+                <label for="customerName">Họ tên *</label>
+                <input id="customerName" type="text" placeholder="Nguyễn Văn A" required />
+              </div>
+              <div class="field">
+                <label for="customerPhone">Số điện thoại *</label>
+                <input id="customerPhone" type="tel" placeholder="0900123456" required />
+              </div>
+              <div class="field">
+                <label for="customerEmail">Email</label>
+                <input id="customerEmail" type="email" placeholder="banhang@example.com" />
+              </div>
+              <div class="field">
+                <label for="customerAddress">Địa chỉ nhận hàng *</label>
+                <textarea id="customerAddress" rows="2" placeholder="Số nhà, đường, quận/huyện" required></textarea>
+              </div>
+              <div class="field">
+                <label for="customerRegion">Khu vực</label>
+                <select id="customerRegion">
+                  <option value="">Chọn khu vực giao hàng</option>
+                  <option value="HN">Hà Nội</option>
+                  <option value="HCM">TP.HCM</option>
+                  <option value="DN">Đà Nẵng</option>
+                  <option value="other">Ngoài vùng</option>
+                </select>
+              </div>
+              <div class="field full-width">
+                <label for="customerNotes">Ghi chú & yêu cầu đặc biệt</label>
+                <textarea id="customerNotes" rows="3" placeholder="Chỉ rõ màu, size, thời gian nhận..."></textarea>
+              </div>
+              <div class="field full-width">
+                <label for="customerFb">Facebook liên hệ *</label>
+                <input
+                  id="customerFb"
+                  type="text"
+                  placeholder="https://facebook.com/..." 
+                  required
+                />
+              </div>
             </div>
-            <div class="field">
-              <label for="customerPhone">Số điện thoại</label>
-              <input id="customerPhone" type="tel" required />
+            <div class="form-actions">
+              <button class="btn primary" type="submit">Gửi đơn chờ báo giá</button>
+              <p class="helper">
+                Đơn hàng chưa gồm phí ship; admin sẽ phản hồi trong vòng 24h qua Messenger.
+              </p>
             </div>
-            <div class="field">
-              <label for="customerAddress">Địa chỉ</label>
-              <textarea id="customerAddress" rows="2" required></textarea>
-            </div>
-            <div class="field">
-              <label for="customerFb">Facebook liên hệ</label>
-              <input id="customerFb" type="text" required />
-            </div>
-            <button class="btn primary" type="submit">Gửi đơn chờ báo giá</button>
-            <p class="badge orange">Đơn hàng chưa gồm phí ship. Vui lòng chờ báo giá.</p>
           </form>
           <div class="checkout-summary-shell" id="checkoutSummary"></div>
         </div>
