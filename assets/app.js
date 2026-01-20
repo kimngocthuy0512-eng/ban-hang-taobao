@@ -739,11 +739,48 @@
           <p><strong>Tổng:</strong> ${totalLabel}</p>
           <p><strong>Thời gian:</strong> ${timestamp}</p>
           <p class="helper">${note || "Chưa có ghi chú admin."}</p>
+          <button class="btn secondary small confirm-ship" data-order-id="${order.id}" type="button">
+            Xác nhận ship
+          </button>
         </article>
       `;
     });
     container.innerHTML = rows.join("");
+    container.querySelectorAll(".confirm-ship").forEach((button) => {
+      const orderId = button.getAttribute("data-order-id");
+      button.addEventListener("click", () => {
+        button.disabled = true;
+        confirmShipping(orderId)
+          .catch((error) => {
+            console.error("Không thể xác nhận ship:", error);
+          })
+          .finally(() => {
+            button.disabled = false;
+          });
+      });
+    });
     if (meta) meta.textContent = `Đã cập nhật ${new Date().toLocaleTimeString("vi-VN")}`;
+  };
+
+  const confirmShipping = async (orderId) => {
+    if (!orderId) return;
+    try {
+      const response = await fetch(`/orders/${orderId}/ship-confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (payload?.message) showOrderNotice(payload.message);
+      if (payload?.order) {
+        handleOrderEvent(payload.order);
+      }
+      return payload;
+    } catch (error) {
+      console.warn("Xác nhận ship thất bại:", error);
+      showOrderNotice("Không thể cập nhật trạng thái ship.");
+      throw error;
+    }
   };
 
   const getSnapshot = () => getBackupSnapshot() || buildSnapshot();
@@ -835,6 +872,50 @@
       document.body.appendChild(panel);
     }
     return panel;
+  };
+
+  const handleOrderEvent = (order) => {
+    if (!order || !order.id) return;
+    const orders = getOrders();
+    const index = orders.findIndex((entry) => entry.id === order.id);
+    if (index === -1) {
+      orders.unshift(order);
+    } else {
+      orders[index] = { ...orders[index], ...order };
+    }
+    setOrders(orders);
+    showOrderNotice(`Đơn hàng ${order.id} cập nhật: ${formatOrderStatus(order.status)}`);
+    if (document.body.dataset.page === "admin-dashboard") {
+      const orderPanel = document.getElementById("adminOrdersPanel");
+      const orderMeta = document.getElementById("adminOrderRefreshMeta");
+      renderAdminOrderQueue(orderPanel, orderMeta).catch((error) => {
+        console.error("Không thể cập nhật panel sau event:", error);
+      });
+    }
+  };
+
+  const initOrderStream = () => {
+    if (typeof EventSource === "undefined") return;
+    try {
+      const source = new EventSource("/events");
+      source.addEventListener("orderUpdate", (event) => {
+        try {
+          const payload = JSON.parse(event.data || "{}");
+          handleOrderEvent(payload.order);
+        } catch (error) {
+          console.warn("Không thể parse event orderUpdate:", error);
+        }
+      });
+      source.addEventListener("message", (event) => {
+        if (event.data) showOrderNotice(event.data);
+      });
+      source.addEventListener("error", (event) => {
+        console.warn("Order stream error", event);
+      });
+      window.addEventListener("beforeunload", () => source.close());
+    } catch (error) {
+      console.warn("EventSource init failed:", error);
+    }
   };
 
   let noticeTimer = null;
@@ -6677,6 +6758,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     seedData();
     patchProductsForDefaults();
     refreshLiveRates();
+    initOrderStream();
     const page = document.body.dataset.page;
     setActiveNav(page);
     updateCartBadge();

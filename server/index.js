@@ -205,6 +205,55 @@ const getVisitorFingerprint = (req) => {
   return `${ip}|${ua}`;
 };
 
+const sseClients = new Set();
+
+const broadcastEvent = (event, payload) => {
+  const data = JSON.stringify(payload);
+  sseClients.forEach((res) => {
+    try {
+      res.write(`event: ${event}\n`);
+      res.write(`data: ${data}\n\n`);
+    } catch (error) {
+      sseClients.delete(res);
+    }
+  });
+};
+
+const notifyMessenger = async (customer, order, message) => {
+  const token = process.env.MESSENGER_ACCESS_TOKEN;
+  if (!token || !customer?.fb) return;
+  const payload = {
+    recipient: { id: customer.fb },
+    message: { text: message || `Đơn hàng ${order.id} đã được xác nhận.` },
+  };
+  return new Promise((resolve) => {
+    const body = JSON.stringify(payload);
+    const url = new URL(`${MESSENGER_API_URL}?access_token=${token}`);
+    const req = https.request(
+      {
+        hostname: url.hostname,
+        path: url.pathname + url.search,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(body),
+        },
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => resolve());
+      }
+    );
+    req.on("error", (error) => {
+      console.warn("Messenger notify failed:", error.message);
+      resolve();
+    });
+    req.write(body);
+    req.end();
+  });
+};
+
 let rateRefreshTimer = null;
 
 const refreshRates = async () => {
@@ -1214,10 +1263,18 @@ app.post("/rates/refresh", async (req, res) => {
 const ORDER_STATUS = {
   PENDING_QUOTE: "PENDING_QUOTE",
   QUOTED_WAITING_PAYMENT: "QUOTED_WAITING_PAYMENT",
+  SHIP_CONFIRMED: "SHIP_CONFIRMED",
   PAYMENT_UNDER_REVIEW: "PAYMENT_UNDER_REVIEW",
   PAID: "PAID",
   CANCELLED: "CANCELLED",
 };
+const PAYMENT_STATUSES = {
+  NOT_PAID: "NOT_PAID",
+  BILL_SUBMITTED: "BILL_SUBMITTED",
+  CONFIRMED: "CONFIRMED",
+};
+const MESSENGER_API_URL = "https://graph.facebook.com/v17.0/me/messages";
+
 
 app.post("/orders", (req, res) => {
   const payload = req.body || {};
@@ -1261,6 +1318,7 @@ app.post("/orders", (req, res) => {
     customer.orders.push(order.id);
   }
   store.orders.unshift(order);
+  broadcastEvent("orderUpdate", { order });
   saveOrderStore(store);
   res.json({
     ok: true,
@@ -1318,7 +1376,39 @@ app.patch("/orders/:id", (req, res) => {
   }
   store.orders[orderIndex] = order;
   saveOrderStore(store);
+  broadcastEvent("orderUpdate", { order });
   res.json({ ok: true, order });
+});
+
+app.post("/orders/:id/ship-confirm", async (req, res) => {
+  const store = loadOrderStore();
+  const index = store.orders.findIndex((entry) => entry.id === req.params.id);
+  if (index === -1) {
+    res.status(404).json({ ok: false, message: "Đơn hàng không tồn tại" });
+    return;
+  }
+  const order = store.orders[index];
+  order.status = ORDER_STATUS.SHIP_CONFIRMED;
+  order.paymentStatus = PAYMENT_STATUSES.BILL_SUBMITTED;
+  order.shipConfirmedAt = new Date().toISOString();
+  appendOrderNote(order, "Admin đã xác nhận phí ship; hệ thống gửi thông báo cho khách.");
+  order.timeline = order.timeline || [];
+  order.timeline.push({
+    at: Date.now(),
+    status: order.status,
+    paymentStatus: order.paymentStatus,
+    actor: "admin",
+    message:
+      "Phí ship đã được xác nhận, admin sẽ thông báo ship ngay, vui lòng chờ báo tổng đơn để chuyển khoản.",
+  });
+  store.orders[index] = order;
+  saveOrderStore(store);
+  broadcastEvent("orderUpdate", { order });
+  const messengerMessage =
+    req.body?.message ||
+    "Thông báo từ Order Hub: phí ship đã được xác nhận, vui lòng chờ báo tổng đơn và thực hiện chuyển khoản. Hãy theo dõi mục thanh toán để cập nhật tiến trình.";
+  await notifyMessenger(order.customer || {}, order, messengerMessage);
+  res.json({ ok: true, order, messengerSent: Boolean(order.customer?.fb) });
 });
 
 app.post("/cache-image", async (req, res) => {
@@ -1462,6 +1552,19 @@ app.post("/auto-import/pages", (req, res) => {
   }
   saveAutoImportPages(pages);
   res.json({ ok: true, pages });
+});
+
+app.get("/events", (req, res) => {
+  res.writeHead(200, {
+    Connection: "keep-alive",
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+  });
+  res.write("retry: 3000\n\n");
+  sseClients.add(res);
+  req.on("close", () => {
+    sseClients.delete(res);
+  });
 });
 
 app.listen(PORT, () => {
