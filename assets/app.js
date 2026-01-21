@@ -2036,6 +2036,107 @@
     activate("pending");
   };
 
+  const renderAggregateModal = (orders, settings, products) => {
+    if (!orders || !orders.length) return "";
+    const summary = {
+      totalJPY: 0,
+      totalVND: 0,
+      shipJPY: 0,
+      shipVND: 0,
+      codes: [],
+    };
+    orders.forEach((order) => {
+      const totals = computeTotals(order, settings, products);
+      summary.totalJPY += totals.totalJPY;
+      summary.totalVND += totals.totalVND;
+      summary.shipJPY += totals.shipJPY;
+      summary.shipVND += totals.shipVND;
+      summary.codes.push(order.paymentCode || order.code);
+    });
+    const memo = `Thanh toán gộp: ${summary.codes.join(", ")}`;
+    return `
+      <div class="card payment-basic-info aggregate-detail-card">
+        <div class="segment">
+          <div>
+            <span class="helper">Các đơn đã chọn</span>
+            <strong>${summary.codes.length} đơn</strong>
+          </div>
+          <span class="status green">Chuẩn bị chuyển khoản</span>
+        </div>
+        <div class="segment compact">
+          <p><strong>Tổng tiền:</strong> JPY ${formatNumber(summary.totalJPY)}</p>
+          <p><strong>VND:</strong> ${formatNumber(summary.totalVND)}</p>
+        </div>
+        <p class="helper">Phí ship tổng: JPY ${formatNumber(summary.shipJPY)} · VND ${formatNumber(
+          summary.shipVND
+        )}</p>
+        <ul class="aggregate-order-list">
+          ${summary.codes.map((code) => `<li>${escapeHtml(code)}</li>`).join("")}
+        </ul>
+        <p class="helper small" data-aggregate-memo="${memo}">${memo}</p>
+      </div>
+      <div class="card soft">
+        <h4>Thông tin chuyển khoản</h4>
+        <p>${settings.bankJP}</p>
+        <p>${settings.bankVN}</p>
+        <div class="aggregate-actions">
+          <button class="btn primary" id="confirmAggregatePaymentBtn" type="button">Tôi đã chuyển khoản</button>
+          <button class="btn ghost small" id="copyAggregateMessageBtn" type="button">Copy nội dung chuyển khoản</button>
+        </div>
+      </div>
+    `;
+  };
+
+  const attachDetailActions = (detail, statusKey, statusData, helpers = {}) => {
+    if (!detail || !statusKey) return;
+    const button = detail.querySelector("[data-action=\"aggregate-pay\"]");
+    if (!button) return;
+    button.addEventListener("click", () => {
+      const bucket = statusData.buckets[statusKey] || [];
+      if (!bucket.length) {
+        showNotification("Không có đơn nào để gộp.", "info");
+        return;
+      }
+      const totals = statusData.totals[statusKey] || { totalJPY: 0, totalVND: 0 };
+      showNotification(
+        `${bucket.length} đơn đã được tổng hợp: JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(
+          totals.totalVND
+        )}`,
+        "info",
+        4200
+      );
+      if (typeof helpers.openAggregateDetail === "function") {
+        helpers.openAggregateDetail(bucket);
+      } else if (typeof helpers.openOrderDetail === "function") {
+        helpers.openOrderDetail(bucket[0]);
+      }
+    });
+  };
+
+  const bindStatusSummary = (statusData, settings, products, helpers = {}) => {
+    const summary = document.querySelector(".status-shell");
+    if (!summary) return;
+    const detail = summary.querySelector("[data-status-detail]");
+    const cards = summary.querySelectorAll(".status-summary-card");
+    if (!detail || !cards.length) return;
+    const activate = (key, options = {}) => {
+      cards.forEach((card) => {
+        card.classList.toggle("active", card.dataset.statusKey === key);
+      });
+      detail.innerHTML = renderStatusDetailPanel(key, statusData, settings, products);
+      attachDetailActions(detail, key, statusData, helpers);
+      if (options.scroll && typeof detail.scrollIntoView === "function") {
+        detail.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    };
+    cards.forEach((card) => {
+      card.addEventListener("click", () => {
+        activate(card.dataset.statusKey, { scroll: true });
+      });
+    });
+    activate("pending");
+  };
+
   const renderPaymentHistory = (orders) => {
     const products = getProducts();
     if (!orders.length) {
@@ -2174,27 +2275,6 @@
       updatedAt: now,
     };
 
-    const attachDetailActions = (detail, statusKey, statusData) => {
-      if (!detail || !statusKey) return;
-      const button = detail.querySelector("[data-action=\"aggregate-pay\"]");
-      if (!button) return;
-      button.addEventListener("click", () => {
-        const bucket = statusData.buckets[statusKey] || [];
-        if (!bucket.length) {
-          showNotification("Không có đơn nào để gộp.", "info");
-          return;
-        }
-        const totals = statusData.totals[statusKey] || { totalJPY: 0, totalVND: 0 };
-        showNotification(
-          `${bucket.length} đơn đã được tổng hợp: JPY ${formatNumber(
-            totals.totalJPY
-          )} · VND ${formatNumber(totals.totalVND)}`,
-          "info",
-          4200
-        );
-        openOrderDetail(bucket[0]);
-      });
-    };
     setCustomers(customers);
     return deviceCode;
   };
@@ -3782,6 +3862,36 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       modal.dataset.activeOrder = "";
     };
 
+    const openAggregateDetail = (orders) => {
+      if (!modal || !modalContent || !orders.length) return;
+      const settings = getSettings();
+      const products = getProducts();
+      modalContent.innerHTML = renderAggregateModal(orders, settings, products);
+      modal.dataset.activeOrder = "AGGREGATE";
+      modal.classList.remove("hidden");
+      copyCustomerCodeToClipboard();
+      const memo = modalContent.querySelector("[data-aggregate-memo]")?.getAttribute("data-aggregate-memo") || "";
+      const copyBtn = modalContent.querySelector("#copyAggregateMessageBtn");
+      const confirmBtn = modalContent.querySelector("#confirmAggregatePaymentBtn");
+      copyBtn?.addEventListener("click", () => {
+        if (!memo) {
+          showNotification("Không có nội dung để sao chép.", "info");
+          return;
+        }
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+          navigator.clipboard
+            .writeText(memo)
+            .then(() => showNotification("Đã sao chép nội dung chuyển khoản.", "success"))
+            .catch(() => showNotification("Không thể sao chép nội dung.", "error"));
+        } else {
+          showNotification("Trình duyệt không hỗ trợ sao chép tự động.", "info");
+        }
+      });
+      confirmBtn?.addEventListener("click", () => {
+        showOrderNotice("Sau khi chuyển khoản xong, hãy upload bill để admin xác nhận.");
+      });
+    };
+
     const renderActivity = () => {
       if (!activity) return;
       const settings = getSettings();
@@ -3792,7 +3902,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         ${renderPaymentSummary(statusData, settings, products)}
         ${renderPaymentHistory(orders)}
       `;
-      bindStatusSummary(statusData, settings, products);
+      bindStatusSummary(statusData, settings, products, { openOrderDetail, openAggregateDetail });
     };
 
     const findOrderByCode = (code) => {
