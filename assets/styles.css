@@ -31,6 +31,12 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 3rem;
+  text-rendering: optimizeLegibility;
+}
+
 body {
   margin: 0;
   font-family: "Plus Jakarta Sans", sans-serif;
@@ -40,6 +46,22 @@ body {
   position: relative;
   overflow-x: hidden;
   filter: saturate(1);
+  overscroll-behavior-y: contain;
+  transition: background 0.4s ease, color 0.4s ease;
+}
+
+body::-webkit-scrollbar {
+  width: 8px;
+}
+
+body::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+body::-webkit-scrollbar-thumb {
+  background: rgba(255, 179, 71, 0.6);
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
 }
 
 body::before {
@@ -604,6 +626,8 @@ textarea {
   box-shadow: 0 10px 20px rgba(5, 10, 30, 0.08);
   position: relative;
   overflow: hidden;
+  will-change: transform;
+  transition: box-shadow 0.35s ease, transform 0.35s ease;
 }
 
 
