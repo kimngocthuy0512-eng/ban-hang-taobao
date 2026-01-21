@@ -2074,6 +2074,91 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     });
   };
 
+  const NOTIFICATION_CENTER_ID = "notificationCenter";
+  const NOTIFICATION_NAV_LABELS = {
+    home: "Trang chủ",
+    shop: "Cửa hàng",
+    product: "Chi tiết sản phẩm",
+    cart: "Giỏ hàng",
+    checkout: "Đặt hàng",
+    payment: "Thanh toán",
+  };
+
+  const ensureNotificationCenter = () => {
+    let center = document.getElementById(NOTIFICATION_CENTER_ID);
+    if (!center) {
+      center = document.createElement("div");
+      center.id = NOTIFICATION_CENTER_ID;
+      center.className = "toast-container";
+      document.body.appendChild(center);
+    }
+    return center;
+  };
+
+  const showNotification = (message = "", variant = "info", duration = 3200) => {
+    const trimmedMessage = message.toString().trim();
+    if (!trimmedMessage) return;
+    const center = ensureNotificationCenter();
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${variant}`;
+    toast.textContent = trimmedMessage;
+    center.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add("visible"));
+    const dismiss = () => {
+      toast.classList.remove("visible");
+      toast.addEventListener(
+        "transitionend",
+        () => {
+          toast.remove();
+        },
+        { once: true }
+      );
+    };
+    const timeoutId = setTimeout(dismiss, duration);
+    toast.addEventListener("click", () => {
+      clearTimeout(timeoutId);
+      dismiss();
+    });
+  };
+
+  const annotateNotificationTargets = () => {
+    document.querySelectorAll("[data-nav]").forEach((trigger) => {
+      if (trigger.dataset.notification) return;
+      const label = NOTIFICATION_NAV_LABELS[trigger.dataset.nav] || trigger.textContent.trim();
+      if (label) trigger.dataset.notification = `Đang chuyển tới ${label}`;
+    });
+    document.querySelectorAll(".hero-actions a").forEach((trigger) => {
+      if (trigger.dataset.notification) return;
+      const label = trigger.textContent.trim();
+      trigger.dataset.notification = `Bạn chọn ${label || "chức năng mua sắm"}`;
+    });
+    document.querySelectorAll(".bottom-nav a").forEach((trigger) => {
+      if (trigger.dataset.notification) return;
+      const label = trigger.textContent.replace(/\([^)]*\)/, "").trim();
+      if (label) trigger.dataset.notification = `Mở ${label}`;
+    });
+    document.querySelectorAll(".actions .btn, .section .btn").forEach((trigger) => {
+      if (trigger.dataset.notification) return;
+      const label = trigger.textContent.trim();
+      if (label) trigger.dataset.notification = `Đã chọn ${label}`;
+    });
+    const filterClear = document.getElementById("clearFilters");
+    if (filterClear && !filterClear.dataset.notification) {
+      filterClear.dataset.notification = "Đã làm mới bộ lọc";
+    }
+  };
+
+  const handleNotificationClick = (event) => {
+    const trigger = event.target.closest("[data-notification]");
+    if (!trigger) return;
+    showNotification(trigger.dataset.notification);
+  };
+
+  const initNotifications = () => {
+    annotateNotificationTargets();
+    document.body.addEventListener("click", handleNotificationClick);
+  };
+
   const renderRatePanel = (container, settings) => {
     if (!container) return;
     container.innerHTML = `
@@ -7097,6 +7182,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     updateCartBadge();
     updateWishlistBadge();
     updateEmergencyLinks();
+    initNotifications();
     initReveal();
     initShortcuts();
     initCatLinks();
