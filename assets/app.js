@@ -1961,32 +1961,6 @@
     `;
   };
 
-  const updatePaymentHero = (statusData, settings) => {
-    if (!statusData) return;
-    const buckets = statusData.buckets || {};
-    const counts = {
-      pending: Array.isArray(buckets.pending) ? buckets.pending.length : 0,
-      shipping: Array.isArray(buckets.shipping) ? buckets.shipping.length : 0,
-      paid: Array.isArray(buckets.paid) ? buckets.paid.length : 0,
-    };
-    Object.entries(counts).forEach(([key, value]) => {
-      const target = document.querySelector(`[data-${key}-count]`);
-      if (target) {
-        target.textContent = String(value);
-      }
-    });
-    const gateElement = document.querySelector("[data-gate-state]");
-    if (gateElement) {
-      const gateOpen = Boolean(settings.paymentGateOpen);
-      gateElement.textContent = gateOpen ? "Đang mở" : "Đang đóng";
-      gateElement.dataset.state = gateOpen ? "open" : "closed";
-    }
-    const syncElement = document.querySelector("[data-sync-at]");
-    if (syncElement) {
-      syncElement.textContent = settings.lastSync ? formatDateTime(settings.lastSync) : "Chưa đồng bộ";
-    }
-  };
-
   const renderPaymentSummary = (statusData, settings, products) => {
     const keys = ["pending", "shipping", "paid"];
     const cards = keys
@@ -2038,7 +2012,31 @@
     `;
   };
 
-    const bindStatusSummary = (statusData, settings, products) => {
+    const attachDetailActions = (detail, statusKey, statusData, helpers = {}) => {
+      if (!detail || !statusKey) return;
+      const button = detail.querySelector("[data-action=\"aggregate-pay\"]");
+      if (!button) return;
+      button.addEventListener("click", () => {
+        const bucket = statusData.buckets[statusKey] || [];
+        if (!bucket.length) {
+          showNotification("Không có đơn nào để gộp.", "info");
+          return;
+        }
+        const totals = statusData.totals[statusKey] || { totalJPY: 0, totalVND: 0 };
+        showNotification(
+          `${bucket.length} đơn đã được tổng hợp: JPY ${formatNumber(
+            totals.totalJPY
+          )} · VND ${formatNumber(totals.totalVND)}`,
+          "info",
+          4200
+        );
+        if (typeof helpers.openOrderDetail === "function") {
+          helpers.openOrderDetail(bucket[0]);
+        }
+      });
+    };
+
+    const bindStatusSummary = (statusData, settings, products, helpers = {}) => {
       const summary = document.querySelector(".status-shell");
       if (!summary) return;
       const detail = summary.querySelector("[data-status-detail]");
@@ -2049,7 +2047,7 @@
           card.classList.toggle("active", card.dataset.statusKey === key);
         });
         detail.innerHTML = renderStatusDetailPanel(key, statusData, settings, products);
-        attachDetailActions(detail, key, statusData);
+        attachDetailActions(detail, key, statusData, helpers);
         if (options.scroll && typeof detail.scrollIntoView === "function") {
           detail.scrollIntoView({ behavior: "smooth", block: "start" });
         }
@@ -2200,27 +2198,6 @@
       updatedAt: now,
     };
 
-    const attachDetailActions = (detail, statusKey, statusData) => {
-      if (!detail || !statusKey) return;
-      const button = detail.querySelector("[data-action=\"aggregate-pay\"]");
-      if (!button) return;
-      button.addEventListener("click", () => {
-        const bucket = statusData.buckets[statusKey] || [];
-        if (!bucket.length) {
-          showNotification("Không có đơn nào để gộp.", "info");
-          return;
-        }
-        const totals = statusData.totals[statusKey] || { totalJPY: 0, totalVND: 0 };
-        showNotification(
-          `${bucket.length} đơn đã được tổng hợp: JPY ${formatNumber(
-            totals.totalJPY
-          )} · VND ${formatNumber(totals.totalVND)}`,
-          "info",
-          4200
-        );
-        openOrderDetail(bucket[0]);
-      });
-    };
     setCustomers(customers);
     return deviceCode;
   };
@@ -3809,17 +3786,16 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     };
 
     const renderActivity = () => {
+      if (!activity) return;
       const settings = getSettings();
       const products = getProducts();
       const orders = getCustomerOrders();
       const statusData = buildPaymentStatusData(orders, settings, products);
-      updatePaymentHero(statusData, settings);
-      if (!activity) return;
       activity.innerHTML = `
         ${renderPaymentSummary(statusData, settings, products)}
         ${renderPaymentHistory(orders)}
       `;
-      bindStatusSummary(statusData, settings, products);
+      bindStatusSummary(statusData, settings, products, { openOrderDetail });
     };
 
     const findOrderByCode = (code) => {

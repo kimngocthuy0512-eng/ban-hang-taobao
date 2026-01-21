@@ -38,44 +38,6 @@
     </header>
 
     <main class="app-shell">
-      <section class="payment-hero reveal">
-        <div class="payment-hero-content">
-          <p class="helper">Order Hub · Trung tâm thanh toán thông minh</p>
-          <h1>Thanh toán gọn gàng, tiện lợi và hiển thị đẹp trên mọi màn hình.</h1>
-          <p>
-            Cổng thanh toán chỉ mở sau khi admin xác nhận phí ship và gửi bill qua Messenger. Hệ thống sẽ khoá cổng
-            ngay khi bill nộp xong, giúp tránh trùng đơn và giữ trạng thái rõ ràng giữa các bước.
-          </p>
-          <div class="payment-hero-actions">
-            <a class="btn primary" href="#paymentActivity">Kiểm tra nhanh cổng & đơn</a>
-            <a class="btn ghost" href="mailto:support@orderhub.vn">Gửi bill hoặc hỏi admin</a>
-          </div>
-        </div>
-        <div class="payment-hero-glance">
-          <div class="glance-grid">
-            <article>
-              <span class="helper">Đơn chờ</span>
-              <strong data-pending-count>0</strong>
-            </article>
-            <article>
-              <span class="helper">Đang giao</span>
-              <strong data-shipping-count>0</strong>
-            </article>
-            <article>
-              <span class="helper">Đã thanh toán</span>
-              <strong data-paid-count>0</strong>
-            </article>
-          </div>
-          <div class="glance-meta">
-            <span class="helper">Cổng thanh toán</span>
-            <strong data-gate-state data-state="closed">Đang đóng</strong>
-            <p class="helper small">
-              Cập nhật cuối: <span data-sync-at>Chưa đồng bộ</span>
-            </p>
-          </div>
-        </div>
-      </section>
-
       <section class="section reveal payment-activity-section">
         <div class="section-header">
           <h2>Hoạt động đặt hàng</h2>
@@ -87,23 +49,6 @@
           Cổng thanh toán chỉ mở sau khi admin nhập giá ship, gộp đơn và gửi tin nhắn qua Facebook Messenger để
           xác nhận. Chạm vào thẻ để mở chi tiết, tải bill và chuyển sang cửa sổ chuyển khoản trong vài giây.
         </p>
-        <div class="payment-steps">
-          <article>
-            <span class="step-index">1</span>
-            <h3>Chuẩn bị thông tin & đơn hàng</h3>
-            <p>Kiểm tra lại đơn, danh sách sản phẩm và địa chỉ nhận hàng để admin gộp và báo ship chuẩn.</p>
-          </article>
-          <article>
-            <span class="step-index">2</span>
-            <h3>Xác nhận phí ship & mở cổng</h3>
-            <p>Admin điều chỉnh phí ship, bật cổng thanh toán và gửi mã/messenger để bạn nắm rõ chi tiết.</p>
-          </article>
-          <article>
-            <span class="step-index">3</span>
-            <h3>Tải bill & theo dõi tiến trình</h3>
-            <p>Upload bill chuyển khoản, theo dõi tiến trình xác minh và chuẩn bị nhận hàng trong một chạm.</p>
-          </article>
-        </div>
         <div id="paymentActivity"></div>
       </section>
     </main>
