@@ -589,9 +589,10 @@ textarea {
 }
 
 .app-shell {
+  width: min(1200px, 100%);
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0.9rem 1rem 5.2rem;
+  padding: 0.9rem clamp(1rem, 3vw, 2.5rem) 5.2rem;
 }
 
 .section {
@@ -974,14 +975,11 @@ textarea {
 .home-shell {
   display: grid;
   gap: 2rem;
-  padding-bottom: 3rem;
-}
-
-.home-shell {
-  display: grid;
-  gap: 2rem;
-  padding: 3rem 1.5rem 3rem;
+  padding-block: clamp(2rem, 4vw, 3rem);
+  padding-inline: clamp(1rem, 4vw, 2.5rem);
   background: #fefcf4;
+  width: min(1200px, 100%);
+  margin: 0 auto;
 }
 
 .home-hero {
@@ -3079,6 +3077,28 @@ body[data-page="product"] .emergency {
 
   .emergency::before {
     font-size: 0.9rem;
+  }
+
+  .home-shell {
+    padding-inline: 1rem;
+  }
+
+  .ecom-hero {
+    padding: 1.6rem 1rem;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-actions a {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .featured-products {
+    padding: 0;
   }
 }
 
