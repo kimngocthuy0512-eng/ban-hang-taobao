@@ -1872,7 +1872,7 @@
     `;
   };
 
-    const renderStatusDetailPanel = (statusKey, statusData, settings, products) => {
+  const renderStatusDetailPanel = (statusKey, statusData, settings, products) => {
       const info = STATUS_PANEL_INFO[statusKey];
     const targetOrders = statusData.buckets[statusKey] || [];
     const totals = statusData.totals[statusKey] || { totalJPY: 0, totalVND: 0 };
@@ -1959,6 +1959,32 @@
         </div>
       </div>
     `;
+  };
+
+  const updatePaymentHero = (statusData, settings) => {
+    if (!statusData) return;
+    const buckets = statusData.buckets || {};
+    const counts = {
+      pending: Array.isArray(buckets.pending) ? buckets.pending.length : 0,
+      shipping: Array.isArray(buckets.shipping) ? buckets.shipping.length : 0,
+      paid: Array.isArray(buckets.paid) ? buckets.paid.length : 0,
+    };
+    Object.entries(counts).forEach(([key, value]) => {
+      const target = document.querySelector(`[data-${key}-count]`);
+      if (target) {
+        target.textContent = String(value);
+      }
+    });
+    const gateElement = document.querySelector("[data-gate-state]");
+    if (gateElement) {
+      const gateOpen = Boolean(settings.paymentGateOpen);
+      gateElement.textContent = gateOpen ? "Đang mở" : "Đang đóng";
+      gateElement.dataset.state = gateOpen ? "open" : "closed";
+    }
+    const syncElement = document.querySelector("[data-sync-at]");
+    if (syncElement) {
+      syncElement.textContent = settings.lastSync ? formatDateTime(settings.lastSync) : "Chưa đồng bộ";
+    }
   };
 
   const renderPaymentSummary = (statusData, settings, products) => {
@@ -3783,11 +3809,12 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     };
 
     const renderActivity = () => {
-      if (!activity) return;
       const settings = getSettings();
       const products = getProducts();
       const orders = getCustomerOrders();
       const statusData = buildPaymentStatusData(orders, settings, products);
+      updatePaymentHero(statusData, settings);
+      if (!activity) return;
       activity.innerHTML = `
         ${renderPaymentSummary(statusData, settings, products)}
         ${renderPaymentHistory(orders)}
