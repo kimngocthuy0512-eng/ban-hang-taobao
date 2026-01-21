@@ -1610,57 +1610,191 @@
     return `<div class="order-items-detailed">${markup}</div>`;
   };
 
-  const renderPaymentSummary = (orders) => {
-    const settings = getSettings();
-    const products = getProducts();
-    const stats = orders.reduce(
-      (acc, order) => {
-        if (order.status === STATUS.CANCELLED) return acc;
-        const totals = computeTotals(order, settings, products);
-        const confirmed = order.paymentStatus === PAYMENT_STATUS.CONFIRMED;
-        if (!confirmed) {
-          acc.pending += 1;
-          acc.outstandingJPY += totals.totalJPY;
-          acc.outstandingVND += totals.totalVND;
-        } else {
-          acc.paid += 1;
-        }
-        if (order.status === STATUS.SHIP_CONFIRMED) acc.shipConfirmed += 1;
-        return acc;
-      },
-      { pending: 0, paid: 0, shipConfirmed: 0, outstandingJPY: 0, outstandingVND: 0 }
-    );
-    const latestOrder = orders[orders.length - 1];
-    const latestTotals = latestOrder
-      ? computeTotals(latestOrder, settings, products)
-      : null;
+  const STATUS_PANEL_INFO = {
+    pending: {
+      label: "Chưa thanh toán",
+      helper: "Đơn hàng chờ báo giá và thanh toán tổng",
+      detailTitle: "Các đơn chưa thanh toán",
+      emptyHint: "Chưa có đơn đang chờ thanh toán.",
+    },
+    shipping: {
+      label: "Đang chờ giao",
+      helper: "Đơn đã xác nhận ship và đang vận chuyển",
+      detailTitle: "Các đơn đang chờ giao",
+      emptyHint: "Chưa có đơn đang giao.",
+    },
+    paid: {
+      label: "Đã thanh toán",
+      helper: "Đơn đã hoàn tất và xác nhận thanh toán",
+      detailTitle: "Các đơn đã thanh toán",
+      emptyHint: "Chưa có đơn thanh toán thành công.",
+    },
+  };
+
+  const getStatusKeyForOrder = (order) => {
+    if (order.status === STATUS.PAID) return "paid";
+    if (order.status === STATUS.SHIP_CONFIRMED) return "shipping";
+    return "pending";
+  };
+
+  const buildPaymentStatusData = (orders, settings, products) => {
+    const buckets = { pending: [], shipping: [], paid: [] };
+    const totals = {
+      pending: { totalJPY: 0, totalVND: 0 },
+      shipping: { totalJPY: 0, totalVND: 0 },
+      paid: { totalJPY: 0, totalVND: 0 },
+    };
+    orders.forEach((order) => {
+      if (order.status === STATUS.CANCELLED) return;
+      const key = getStatusKeyForOrder(order);
+      buckets[key].push(order);
+      const summary = computeTotals(order, settings, products);
+      totals[key].totalJPY += summary.totalJPY;
+      totals[key].totalVND += summary.totalVND;
+    });
+    return { buckets, totals };
+  };
+
+  const gatherProductsFromOrders = (orders, products) => {
+    const seen = new Set();
+    const result = [];
+    orders.forEach((order) => {
+      (order.items || []).forEach((item) => {
+        const id = item.id;
+        if (!id || seen.has(id)) return;
+        const product = products.find((entry) => entry.id === id);
+        if (!product) return;
+        seen.add(product.id);
+        result.push(product);
+      });
+    });
+    return result;
+  };
+
+  const renderStatusProductCard = (product, settings) => {
+    if (!product) return "";
+    const price = convertPrice(product.basePrice, settings);
+    const images = getProductImages(product);
+    const thumb = images[0] || "";
+    const safeName = escapeHtml(product.name || "Sản phẩm");
     return `
-      <div class="payment-summary-grid">
-        <article class="payment-summary-card">
-          <p class="helper">Đơn đang theo dõi</p>
-          <strong>${orders.length}</strong>
-          <span>${stats.pending} chưa thanh toán · ${stats.paid} đã hoàn tất</span>
-        </article>
-        <article class="payment-summary-card">
-          <p class="helper">Giá trị cần thanh toán</p>
-          <strong>JPY ${formatNumber(stats.outstandingJPY)} · VND ${formatNumber(
-            stats.outstandingVND
-          )}</strong>
-          <span>${stats.shipConfirmed} đơn đã xác nhận ship</span>
-        </article>
-        <article class="payment-summary-card">
-          <p class="helper">Đơn mới nhất</p>
-          <strong>${latestOrder ? latestOrder.code : "-"}</strong>
-          <span>${
-            latestTotals
-              ? `JPY ${formatNumber(latestTotals.totalJPY)} · VND ${formatNumber(
-                  latestTotals.totalVND
-                )}`
-              : "Chưa có đơn hàng"
-          }</span>
-        </article>
+      <article class="status-product-card">
+        <div class="status-product-image">
+          ${
+            thumb
+              ? `<img src="${thumb}" alt="${safeName}" loading="lazy" />`
+              : `<span class="status-product-placeholder">${safeName}</span>`
+          }
+        </div>
+        <div class="status-product-meta">
+          <strong>${safeName}</strong>
+          <span class="helper">JPY ${formatNumber(price.jpy)} · ${formatCurrency(
+            price.base,
+            settings.baseCurrency
+          )}</span>
+        </div>
+      </article>
+    `;
+  };
+
+  const renderStatusDetailPanel = (statusKey, statusData, settings, products) => {
+    const info = STATUS_PANEL_INFO[statusKey];
+    const targetOrders = statusData.buckets[statusKey] || [];
+    const ordersMarkup = targetOrders.length
+      ? targetOrders
+          .map((order) => {
+            const totals = computeTotals(order, settings, products);
+            return `
+              <article class="status-order-card">
+                <div>
+                  <strong>${order.code}</strong>
+                  <span class="helper">${formatDateTime(order.createdAt)}</span>
+                </div>
+                <p class="helper small">
+                  ${formatOrderStatus(order.status)} · ${formatPaymentStatus(order.paymentStatus)}
+                </p>
+                <p class="helper">JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(
+                  totals.totalVND
+                )}</p>
+              </article>
+            `;
+          })
+          .join("")
+      : `<div class="status-empty">${info.emptyHint}</div>`;
+    let previewProducts = gatherProductsFromOrders(targetOrders, products);
+    if (!previewProducts.length) {
+      previewProducts = products.slice(0, 4);
+    }
+    const productMarkup = previewProducts
+      .slice(0, 4)
+      .map((product) => renderStatusProductCard(product, settings))
+      .join("");
+    return `
+      <div class="status-detail-body">
+        <div class="status-detail-orders">
+          <h4>${info.detailTitle}</h4>
+          ${ordersMarkup}
+        </div>
+        <div class="status-detail-products">
+          <h4>Sản phẩm gợi ý</h4>
+          <div class="status-product-grid">
+            ${productMarkup}
+          </div>
+        </div>
       </div>
     `;
+  };
+
+  const renderPaymentSummary = (statusData, settings, products) => {
+    const keys = ["pending", "shipping", "paid"];
+    const cards = keys
+      .map((key) => {
+        const info = STATUS_PANEL_INFO[key];
+        const bucket = statusData.buckets[key] || [];
+        const totals = statusData.totals[key] || { totalJPY: 0, totalVND: 0 };
+        return `
+          <article
+            class="payment-summary-card status-summary-card ${key === "pending" ? "active" : ""}"
+            data-status-key="${key}"
+          >
+            <p class="helper">${info.helper}</p>
+            <strong>${bucket.length}</strong>
+            <span>JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(totals.totalVND)}</span>
+            <small>${info.label}</small>
+          </article>
+        `;
+      })
+      .join("");
+    return `
+      <div class="status-shell">
+        <div class="status-summary-grid">
+          ${cards}
+        </div>
+        <div class="status-detail" data-status-detail>
+          ${renderStatusDetailPanel("pending", statusData, settings, products)}
+        </div>
+      </div>
+    `;
+  };
+
+  const bindStatusSummary = (statusData, settings, products) => {
+    const summary = document.querySelector(".status-shell");
+    if (!summary) return;
+    const detail = summary.querySelector("[data-status-detail]");
+    const cards = summary.querySelectorAll(".status-summary-card");
+    if (!detail || !cards.length) return;
+    const activate = (key) => {
+      cards.forEach((card) => {
+        card.classList.toggle("active", card.dataset.statusKey === key);
+      });
+      detail.innerHTML = renderStatusDetailPanel(key, statusData, settings, products);
+    };
+    cards.forEach((card) => {
+      card.addEventListener("click", () => {
+        activate(card.dataset.statusKey);
+      });
+    });
+    activate("pending");
   };
 
   const renderPaymentHistory = (orders) => {
@@ -3389,11 +3523,15 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
     const renderActivity = () => {
       if (!activity) return;
+      const settings = getSettings();
+      const products = getProducts();
       const orders = getCustomerOrders();
+      const statusData = buildPaymentStatusData(orders, settings, products);
       activity.innerHTML = `
-        ${renderPaymentSummary(orders)}
+        ${renderPaymentSummary(statusData, settings, products)}
         ${renderPaymentHistory(orders)}
       `;
+      bindStatusSummary(statusData, settings, products);
     };
 
     const findOrderByCode = (code) => {
