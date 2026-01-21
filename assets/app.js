@@ -3068,6 +3068,71 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     renderCart();
   };
 
+  const normalizeItemKey = (item) => {
+    const color = (item.color || "").trim();
+    const size = (item.size || "").trim();
+    return `${item.id || "unknown"}|${size}|${color}`;
+  };
+
+  const mergeOrderItems = (existingItems = [], incomingItems = []) => {
+    const merged = new Map();
+    existingItems.forEach((entry) => {
+      const key = normalizeItemKey(entry);
+      merged.set(key, { ...entry });
+    });
+    incomingItems.forEach((entry) => {
+      const key = normalizeItemKey(entry);
+      if (merged.has(key)) {
+        const existing = merged.get(key);
+        existing.qty = (existing.qty || 0) + (entry.qty || 0);
+        merged.set(key, existing);
+      } else {
+        merged.set(key, { ...entry });
+      }
+    });
+    return Array.from(merged.values());
+  };
+
+  const findPendingOrderIndexForCustomer = (ordersList, customerCode) => {
+    for (let i = ordersList.length - 1; i >= 0; i -= 1) {
+      const candidate = ordersList[i];
+      if (candidate.customerCode !== customerCode) continue;
+      if (candidate.status === STATUS.CANCELLED) continue;
+      if (candidate.paymentStatus === PAYMENT_STATUS.CONFIRMED) continue;
+      return i;
+    }
+    return -1;
+  };
+
+  const mergePendingOrderForCustomer = (ordersList, customerCode, payload, items) => {
+    if (!customerCode) return null;
+    const targetIndex = findPendingOrderIndexForCustomer(ordersList, customerCode);
+    if (targetIndex < 0) return null;
+    const targetOrder = ordersList[targetIndex];
+    if (!items.length) return null;
+    targetOrder.items = mergeOrderItems(targetOrder.items || [], items);
+    targetOrder.customer = { ...targetOrder.customer, ...payload };
+    targetOrder.shipping = {
+      address: payload.address || targetOrder.shipping?.address || "",
+      fb: payload.fb || targetOrder.shipping?.fb || "",
+    };
+    targetOrder.status = STATUS.PENDING_QUOTE;
+    targetOrder.paymentStatus = PAYMENT_STATUS.NOT_PAID;
+    targetOrder.shipFee = 0;
+    targetOrder.paymentExpiresAt = null;
+    targetOrder.billSubmitted = false;
+    targetOrder.billPreview = "";
+    targetOrder.updatedAt = Date.now();
+    const addedQty = items.reduce((sum, entry) => sum + Number(entry.qty || 0), 0);
+    pushTimeline(targetOrder, {
+      status: targetOrder.status,
+      paymentStatus: targetOrder.paymentStatus,
+      actor: "customer",
+      message: `Gộp thêm ${addedQty} sản phẩm, chờ báo giá và thanh toán tổng.`,
+    });
+    return { order: targetOrder, addedQty };
+  };
+
   const initCheckout = () => {
     const form = document.getElementById("checkoutForm");
     const guidance = document.getElementById("checkoutGuidance");
@@ -3139,45 +3204,55 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           productUrl: product?.sourceUrl || product?.link || "",
         };
       });
-      const order = {
-        code: generateOrderCode(),
-        customerCode,
-        customer: payload,
-        status: STATUS.PENDING_QUOTE,
-        paymentStatus: PAYMENT_STATUS.NOT_PAID,
-        paymentCode: "",
-        paymentExpiresAt: null,
-        shipFee: 0,
-        shipCurrency: "JPY",
-        items,
-        shipping: {
-          address: payload.address || "",
-          fb: payload.fb || "",
-        },
-        billSubmitted: false,
-        note: "",
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        eta: "",
-        tracking: "",
-      };
-      order.paymentCode = order.code;
-      pushTimeline(order, {
-        status: order.status,
-        paymentStatus: order.paymentStatus,
-        actor: "customer",
-        message: "Đơn hàng đã được tạo và đang chờ báo giá.",
-      });
       const ordersList = getOrders();
-      ordersList.push(order);
+      const mergeResult = mergePendingOrderForCustomer(ordersList, customerCode, payload, items);
+      let orderToPersist;
+      let toastMessage;
+      if (mergeResult) {
+        orderToPersist = mergeResult.order;
+        toastMessage = `Đơn hàng cũ đã gộp thêm ${mergeResult.addedQty} sản phẩm, chờ báo giá tổng.`;
+      } else {
+        const order = {
+          code: generateOrderCode(),
+          customerCode,
+          customer: payload,
+          status: STATUS.PENDING_QUOTE,
+          paymentStatus: PAYMENT_STATUS.NOT_PAID,
+          paymentCode: "",
+          paymentExpiresAt: null,
+          shipFee: 0,
+          shipCurrency: "JPY",
+          items,
+          shipping: {
+            address: payload.address || "",
+            fb: payload.fb || "",
+          },
+          billSubmitted: false,
+          note: "",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          eta: "",
+          tracking: "",
+        };
+        order.paymentCode = order.code;
+        pushTimeline(order, {
+          status: order.status,
+          paymentStatus: order.paymentStatus,
+          actor: "customer",
+          message: "Đơn hàng đã được tạo và đang chờ báo giá.",
+        });
+        ordersList.push(order);
+        orderToPersist = order;
+        toastMessage = "Đơn hàng gửi thành công. Chuyển sang phần thanh toán...";
+      }
       setOrders(ordersList);
       setCart([]);
       updateCartBadge();
       form.reset();
       fillCheckoutFormWithProfile();
-      persistOrderToBackend(order);
-      showNotification("Đơn hàng gửi thành công. Chuyển sang phần thanh toán...", "success");
-      setTimeout(() => redirectToPaymentPage(order.code), 1200);
+      persistOrderToBackend(orderToPersist);
+      showNotification(toastMessage, "success");
+      setTimeout(() => redirectToPaymentPage(orderToPersist.code), 1200);
     });
   };
 
