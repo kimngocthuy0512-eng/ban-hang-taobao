@@ -2121,6 +2121,22 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     });
   };
 
+  const redirectToPaymentPage = (orderCode) => {
+    const base =
+      typeof window !== "undefined" && window.location && window.location.origin
+        ? window.location.origin
+        : window.location.href;
+    try {
+      const targetUrl = new URL("payment.html", base);
+      if (orderCode) {
+        targetUrl.searchParams.set("order", orderCode);
+      }
+      window.location.href = targetUrl.toString();
+    } catch (error) {
+      window.location.href = `payment.html${orderCode ? `?order=${encodeURIComponent(orderCode)}` : ""}`;
+    }
+  };
+
   const annotateNotificationTargets = () => {
     document.querySelectorAll("[data-nav]").forEach((trigger) => {
       if (trigger.dataset.notification) return;
@@ -3056,8 +3072,6 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const form = document.getElementById("checkoutForm");
     const guidance = document.getElementById("checkoutGuidance");
     const formAlert = document.getElementById("checkoutFormAlert");
-    const modal = document.getElementById("orderConfirmModal");
-    const modalClose = document.getElementById("orderConfirmClose");
 
     const renderGuidance = () => {
       if (!guidance) return;
@@ -3085,24 +3099,6 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       if (!formAlert) return;
       formAlert.textContent = message;
       formAlert.classList.toggle("alert", isError && Boolean(message));
-    };
-
-    const showConfirmationModal = () => {
-      if (!modal) return;
-      modal.setAttribute("aria-hidden", "false");
-      modal.classList.add("active");
-    };
-
-    const hideConfirmationModal = () => {
-      if (!modal) return;
-      modal.setAttribute("aria-hidden", "true");
-      modal.classList.remove("active");
-    };
-
-    const handleModalClick = (event) => {
-      if (event.target === modal) {
-        hideConfirmationModal();
-      }
     };
 
     renderGuidance();
@@ -3180,11 +3176,9 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       form.reset();
       fillCheckoutFormWithProfile();
       persistOrderToBackend(order);
-      showConfirmationModal();
+      showNotification("Đơn hàng gửi thành công. Chuyển sang phần thanh toán...", "success");
+      setTimeout(() => redirectToPaymentPage(order.code), 1200);
     });
-
-    modal?.addEventListener("click", handleModalClick);
-    modalClose?.addEventListener("click", hideConfirmationModal);
   };
 
   const renderPaymentResult = (order) => {
@@ -3280,6 +3274,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const modal = document.getElementById("paymentDetailModal");
     const modalContent = document.getElementById("paymentDetailContent");
     const modalClose = document.getElementById("paymentDetailClose");
+    const highlightOrderCode = new URLSearchParams(window.location.search).get("order");
 
     const generateBillPreview = (file) =>
       new Promise((resolve) => {
@@ -3404,6 +3399,13 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     };
 
     renderActivity();
+
+    if (highlightOrderCode) {
+      const focusOrder = findOrderByCode(highlightOrderCode);
+      if (focusOrder) {
+        setTimeout(() => openOrderDetail(focusOrder), 220);
+      }
+    }
 
     if (activity) {
       activity.addEventListener("click", handleActivityClick);
