@@ -41,9 +41,45 @@
     </header>
 
     <main class="app-shell admin-shell">
-      <section class="section reveal">
+      <section class="section reveal admin-orders-hero">
         <div class="section-header">
-          <h2>Danh sách đơn hàng</h2>
+          <h2>Trung tâm điều phối đơn hàng</h2>
+          <div class="line"></div>
+          <p>Nâng cấp từng khu vực xử lý, phân chia rõ ràng theo độ ưu tiên và khách hàng để duy trì tốc độ phản hồi.</p>
+        </div>
+        <div class="admin-orders-lanes">
+          <article class="card lane-card" id="adminNewOrdersLane">
+            <div class="lane-card-head">
+              <h3>Đơn mới nhất</h3>
+              <span class="helper">Ưu tiên phản hồi khách ngay lập tức</span>
+            </div>
+            <div id="adminNewOrdersList" class="admin-lane-list">
+              <p class="helper">Đang tải đơn mới...</p>
+            </div>
+          </article>
+          <article class="card lane-card lane-pending" id="adminPendingLane">
+            <div class="lane-card-head">
+              <h3>Đơn chưa thanh toán</h3>
+              <span class="helper">Gộp đơn và báo giá tổng</span>
+            </div>
+            <div id="adminPendingSummary" class="admin-lane-summary">
+              <p class="helper">Đang tổng hợp...</p>
+            </div>
+          </article>
+          <article class="card lane-card lane-priority" id="adminPriorityLane">
+            <div class="lane-card-head">
+              <h3>Vùng ưu tiên</h3>
+              <span class="helper">Đơn đang theo dõi, ship sớm</span>
+            </div>
+            <div id="adminPriorityZones" class="admin-lane-summary">
+              <p class="helper">Đang phân tích luồng...</p>
+            </div>
+          </article>
+        </div>
+      </section>
+      <section class="section reveal admin-orders-table-section">
+        <div class="section-header">
+          <h2>Danh sách đơn và lược đồ chức năng</h2>
           <div class="line"></div>
         </div>
         <div class="card admin-panel">
@@ -65,9 +101,9 @@
           </div>
         </div>
       </section>
-      <section class="section reveal">
+      <section class="section reveal admin-orders-editor">
         <div class="section-header">
-          <h2>Chỉnh sửa / Xóa đơn hàng</h2>
+          <h2>Chỉnh sửa · Xóa vĩnh viễn</h2>
           <div class="line"></div>
         </div>
         <div class="card form-grid">
@@ -135,9 +171,11 @@
             <input id="orderEditCustomerFb" type="text" />
           </div>
           <p class="helper" id="orderEditMessage">Chọn đơn để chỉnh sửa.</p>
-          <div class="segment">
+          <div class="segment segment--tight">
             <button class="btn primary" id="orderEditSave" type="button">Lưu thay đổi</button>
-            <button class="btn secondary" id="orderEditDelete" type="button">Xoá đơn</button>
+            <button class="btn danger" id="orderEditDelete" type="button">
+              Xóa vĩnh viễn · Không thể khôi phục
+            </button>
           </div>
         </div>
       </section>

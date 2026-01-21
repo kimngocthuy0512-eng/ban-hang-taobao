@@ -47,7 +47,24 @@
           <div class="line"></div>
         </div>
         <div class="card admin-panel">
-          <div id="customerList" class="form-grid"></div>
+          <div class="customer-management-shell">
+            <div class="customer-list-section">
+              <div class="field">
+                <label for="customerSearch">Tìm nhanh khách</label>
+                <input
+                  id="customerSearch"
+                  type="search"
+                  placeholder="Nhập tên, điện thoại hoặc Facebook"
+                />
+              </div>
+              <div id="customerList" class="customer-list-grid"></div>
+            </div>
+            <div class="customer-detail-wrapper">
+              <div id="customerDetailPanel" class="customer-detail-panel">
+                <p class="helper">Chọn khách hàng để xem chi tiết.</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </main>

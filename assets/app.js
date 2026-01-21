@@ -778,31 +778,45 @@
       return;
     }
     const rows = orders.slice(0, 4).map((order) => {
+      const totals = computeTotals(order, getSettings(), getProducts());
+      const badge = getOrderPaymentBadge(order);
+      const customerLabel = order.customer?.name || "Khách vãng lai";
+      const phoneLabel = order.customer?.phone || "Chưa có số điện thoại";
+      const contactFb = order.customer?.fb ? ` · FB: ${order.customer.fb}` : "";
+      const statusLabel = formatOrderStatus(order.status);
       const totalLabel =
-        typeof order.totalJPY === "number" && typeof order.totalVND === "number"
-          ? `${order.totalJPY.toLocaleString("en-US")} ¥ / ${order.totalVND.toLocaleString()} ₫`
+        typeof totals.totalJPY === "number" && typeof totals.totalVND === "number"
+          ? `JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(totals.totalVND)}`
           : "Đang tính tổng";
       const timestamp = order.createdAt
         ? new Date(order.createdAt).toLocaleString("vi-VN")
         : "-";
-      const statusLabel = formatOrderStatus(order.status);
       const note =
         Array.isArray(order.notes) && order.notes.length
           ? order.notes[order.notes.length - 1].text
-          : "";
+          : "Chưa có ghi chú admin.";
       return `
-        <article class="card">
-          <div class="segment">
-            <strong>Mã:</strong> ${order.id}
-            <span class="status">${statusLabel}</span>
+        <article class="card admin-order-card">
+          <div class="segment admin-order-head">
+            <div>
+              <strong>${customerLabel}</strong>
+              <span class="helper">${phoneLabel}${contactFb}</span>
+            </div>
+            <span class="status ${badge.class}">${badge.label}</span>
           </div>
-          <p><strong>Khách:</strong> ${order.customer?.name || "Khách vãng lai"}</p>
+          <p><strong>Mã đơn:</strong> ${order.code}</p>
+          <p><strong>Trạng thái:</strong> ${statusLabel}</p>
           <p><strong>Tổng:</strong> ${totalLabel}</p>
           <p><strong>Thời gian:</strong> ${timestamp}</p>
-          <p class="helper">${note || "Chưa có ghi chú admin."}</p>
-          <button class="btn secondary small confirm-ship" data-order-id="${order.id}" type="button">
-            Xác nhận ship
-          </button>
+          <p class="helper">${note}</p>
+          <div class="admin-order-actions">
+            <button class="btn ghost small" type="button" data-action="view-order" data-order-id="${order.code}">
+              Xem chi tiết
+            </button>
+            <button class="btn secondary small confirm-ship" data-order-id="${order.id}" type="button">
+              Xác nhận ship
+            </button>
+          </div>
         </article>
       `;
     });
@@ -820,6 +834,13 @@
           });
       });
     });
+    container.querySelectorAll("[data-action=\"view-order\"]").forEach((button) => {
+      const orderCode = button.getAttribute("data-order-id");
+      button.addEventListener("click", () => {
+        if (!orderCode) return;
+        window.location.href = `admin-orders.html?order=${encodeURIComponent(orderCode)}`;
+      });
+    });
     if (meta) meta.textContent = `Đã cập nhật ${new Date().toLocaleTimeString("vi-VN")}`;
   };
 
@@ -827,16 +848,35 @@
 
   const renderAdminNewCustomers = (container, limit = 6) => {
     if (!container) return;
+    const searchTerm =
+      container.id === "customerList" ? getCustomerSearchTerm() : "";
     const customers = Object.values(getCustomers());
     if (!customers.length) {
       container.innerHTML =
         '<div class="card soft"><p>Chưa có khách hàng được ghi nhận trên hệ thống.</p></div>';
+      renderCustomerDetailPanel("");
+      return;
+    }
+    let filtered = customers;
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = customers.filter((customer) => {
+        const name = (customer.name || "").toLowerCase();
+        const phone = (customer.phone || "").toLowerCase();
+        const fb = (customer.fb || "").toLowerCase();
+        return name.includes(term) || phone.includes(term) || fb.includes(term);
+      });
+    }
+    if (!filtered.length) {
+      container.innerHTML =
+        '<div class="card soft"><p>Không tìm thấy khách hàng phù hợp.</p></div>';
+      renderCustomerDetailPanel("");
       return;
     }
     const ordersList = getOrders();
     const products = getProducts();
     const settings = getSettings();
-    const sorted = customers
+    const sorted = filtered
       .slice()
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
       .slice(0, limit);
@@ -865,16 +905,18 @@
           ? formatDateTime(customer.createdAt)
           : "Không rõ thời gian";
         const isFresh = index < 3;
+        const badgeClass = isFresh ? "badge green" : "badge orange";
+        const badgeLabel = isFresh ? "Ưu tiên" : "Đã ghi nhận";
         return `
-          <article class="customer-card ${isFresh ? "customer-card--fresh" : ""}">
+          <article class="customer-card ${isFresh ? "customer-card--fresh" : ""}" data-customer-card data-code="${customer.code}">
             <div class="customer-card-head">
               <div>
-                <strong>${customer.name || "Khách hàng"}</strong>
+                <strong>${escapeHtml(customer.name || "Khách hàng")}</strong>
                 <span class="helper">${customer.phone || "Chưa có số điện thoại"}</span>
               </div>
               <div class="customer-card-head-meta">
                 <span class="helper">${createdLabel}</span>
-                <span class="badge">Mã ${customer.code}</span>
+                <span class="${badgeClass}">${badgeLabel}</span>
               </div>
             </div>
             <div class="customer-card-stats">
@@ -883,7 +925,7 @@
               <span>Chưa TT: ${formatNumber(outstanding)} ₫</span>
             </div>
             <div class="customer-card-meta">
-              <span>${customer.fb || "Facebook chưa cập nhật"}</span>
+              <span>${escapeHtml(customer.fb || "Facebook chưa cập nhật")}</span>
               <span class="helper">Mới nhất: ${lastOrderLabel}</span>
             </div>
             <div class="customer-card-actions">
@@ -900,31 +942,161 @@
       .join("");
     container.innerHTML = markup;
     bindCustomerSection(container);
+    bindCustomerDetailPanel();
+    renderCustomerDetailPanel(sorted[0]?.code || "");
   };
 
-  const renderAllCustomerSections = () => {
-    CUSTOMER_SECTION_IDS.forEach((id) => {
-      renderAdminNewCustomers(document.getElementById(id));
+  const getCustomerSearchTerm = () => {
+    const input = document.getElementById("customerSearch");
+    return input?.value.trim().toLowerCase() || "";
+  };
+
+  const computeCustomerOrderStats = (customerCode) => {
+    const orders = getOrders().filter((entry) => entry.customerCode === customerCode);
+    const products = getProducts();
+    const settings = getSettings();
+    let totalPaid = 0;
+    let outstanding = 0;
+    orders.forEach((order) => {
+      const totals = computeTotals(order, settings, products);
+      if (order.paymentStatus === PAYMENT_STATUS.CONFIRMED) {
+        totalPaid += totals.totalVND;
+      } else {
+        outstanding += totals.totalVND;
+      }
     });
+    return {
+      orders,
+      count: orders.length,
+      paid: totalPaid,
+      outstanding,
+    };
   };
 
-  const handleCustomerCardAction = (event) => {
-    const button = event.target.closest("[data-action]");
+  const renderCustomerDetailPanel = (customerCode) => {
+    const panel = document.getElementById("customerDetailPanel");
+    if (!panel) return;
+    if (!customerCode) {
+      panel.innerHTML =
+        '<div class="customer-detail-placeholder"><p class="helper">Chọn khách hàng để xem chi tiết.</p></div>';
+      return;
+    }
+    const customers = getCustomers();
+    const customer = customers[customerCode];
+    if (!customer) {
+      panel.innerHTML =
+        '<div class="customer-detail-placeholder"><p class="helper">Không tìm thấy khách hàng này.</p></div>';
+      return;
+    }
+    const stats = computeCustomerOrderStats(customerCode);
+    const productSettings = getSettings();
+    const productList = getProducts();
+    const safeName = escapeHtml(customer.name || "Khách hàng");
+    const safePhone = escapeHtml(customer.phone || "Chưa có số điện thoại");
+    const safeAddress = escapeHtml(customer.address || "Địa chỉ chưa cập nhật");
+    const recentOrders = stats.orders
+      .slice()
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      .slice(0, 3)
+      .map((order) => {
+        const totals = computeTotals(order, productSettings, productList);
+        return `
+          <div class="customer-detail-order">
+            <strong>${escapeHtml(order.code)}</strong>
+            <span>${formatOrderStatus(order.status)}</span>
+            <span>${formatPaymentStatus(order.paymentStatus)}</span>
+            <span class="helper">JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(
+              totals.totalVND
+            )}</span>
+          </div>
+        `;
+      })
+      .join("");
+    panel.innerHTML = `
+      <div class="customer-detail-card">
+        <div class="customer-detail-head">
+          <h3>${safeName}</h3>
+          <span class="helper">${safePhone}</span>
+          <span class="helper small">${safeAddress}</span>
+          <span class="helper small">FB: ${escapeHtml(customer.fb || "Chưa cập nhật")}</span>
+        </div>
+        <div class="customer-detail-stats">
+          <span>Đơn hàng: ${stats.count}</span>
+          <span>Đã TT: ${formatNumber(stats.paid)} ₫</span>
+          <span>Chưa TT: ${formatNumber(stats.outstanding)} ₫</span>
+        </div>
+        <div class="customer-detail-orders">
+          <h4>Đơn gần nhất</h4>
+          ${recentOrders || '<p class="helper small">Chưa có đơn hàng.</p>'}
+        </div>
+        <div class="customer-detail-actions">
+          <button class="btn ghost small" type="button" data-action="view-orders" data-code="${customerCode}">
+            Xem đơn hàng
+          </button>
+          <button class="btn danger small" type="button" data-action="delete-customer" data-code="${customerCode}">
+            Xóa khách
+          </button>
+        </div>
+      </div>
+    `;
+  };
+
+  const handleCustomerDetailAction = (event) => {
+    const button = event.target.closest("button[data-action]");
     if (!button) return;
     const action = button.dataset.action;
     const code = button.dataset.code;
-    if (!code) return;
     if (action === "delete-customer") {
-      const customers = getCustomers();
-      if (!customers[code]) return;
-      delete customers[code];
-      setCustomers(customers);
-      renderAllCustomerSections();
-      showOrderNotice(`Đã xóa khách hàng ${code}.`);
+      removeCustomerByCode(code);
       return;
     }
     if (action === "view-orders") {
       window.location.href = `admin-orders.html?customer=${code}`;
+    }
+  };
+
+  const bindCustomerDetailPanel = () => {
+    const panel = document.getElementById("customerDetailPanel");
+    if (!panel || panel.dataset.bound === "1") return;
+    panel.dataset.bound = "1";
+    panel.addEventListener("click", handleCustomerDetailAction);
+  };
+
+  const renderAllCustomerSections = () => {
+    CUSTOMER_SECTION_IDS.forEach((id) => {
+      const limit = id === "customerList" ? 12 : 6;
+      renderAdminNewCustomers(document.getElementById(id), limit);
+    });
+  };
+
+  const removeCustomerByCode = (code) => {
+    if (!code) return;
+    const customers = getCustomers();
+    if (!customers[code]) return;
+    delete customers[code];
+    setCustomers(customers);
+    renderAllCustomerSections();
+    renderCustomerDetailPanel("");
+    showOrderNotice(`Đã xóa khách hàng ${code}.`);
+  };
+
+  const handleCustomerCardAction = (event) => {
+    const button = event.target.closest("[data-action]");
+    const card = event.target.closest("[data-customer-card]");
+    const cardCode = card?.dataset?.code;
+    const actionCode = button?.dataset?.code;
+    const code = actionCode || cardCode;
+    if (code) {
+      renderCustomerDetailPanel(code);
+    }
+    if (!button) return;
+    const action = button.dataset.action;
+    if (action === "delete-customer") {
+      removeCustomerByCode(actionCode);
+      return;
+    }
+    if (action === "view-orders") {
+      window.location.href = `admin-orders.html?customer=${actionCode}`;
     }
   };
 
@@ -1613,19 +1785,22 @@
   const STATUS_PANEL_INFO = {
     pending: {
       label: "Chưa thanh toán",
-      helper: "Đơn hàng chờ báo giá và thanh toán tổng",
+      helper: "Đơn hàng đang chờ báo giá và thanh toán tổng",
+      notice: "Đang chờ thanh toán gộp, thanh toán một lần khi có giá ship",
       detailTitle: "Các đơn chưa thanh toán",
       emptyHint: "Chưa có đơn đang chờ thanh toán.",
     },
     shipping: {
       label: "Đang chờ giao",
-      helper: "Đơn đã xác nhận ship và đang vận chuyển",
+      helper: "Đơn đã xác nhận phí ship và đang trên đường",
+      notice: "Theo dõi lộ trình và sẵn sàng nhận hàng",
       detailTitle: "Các đơn đang chờ giao",
       emptyHint: "Chưa có đơn đang giao.",
     },
     paid: {
       label: "Đã thanh toán",
       helper: "Đơn đã hoàn tất và xác nhận thanh toán",
+      notice: "Thanh toán trọn gói, chuẩn bị bàn giao hàng",
       detailTitle: "Các đơn đã thanh toán",
       emptyHint: "Chưa có đơn thanh toán thành công.",
     },
@@ -1700,15 +1875,36 @@
   const renderStatusDetailPanel = (statusKey, statusData, settings, products) => {
     const info = STATUS_PANEL_INFO[statusKey];
     const targetOrders = statusData.buckets[statusKey] || [];
+    const totals = statusData.totals[statusKey] || { totalJPY: 0, totalVND: 0 };
+    const bucketCount = targetOrders.length;
+    const prefixHint =
+      bucketCount && statusKey === "pending"
+        ? `Gộp ${bucketCount} đơn chưa thanh toán để báo giá tổng.`
+        : info.notice || info.helper;
+
+    const aggregateMarkup = `
+      <div class="status-detail-aggregate">
+        <div class="status-detail-aggregate-title">
+          <span>${info.label}</span>
+          ${bucketCount ? `<span class="status-detail-aggregate-chip">${bucketCount} đơn</span>` : ""}
+        </div>
+        <strong>JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(totals.totalVND)}</strong>
+        <p class="helper small">${prefixHint}</p>
+      </div>
+    `;
+
     const ordersMarkup = targetOrders.length
       ? targetOrders
           .map((order) => {
             const totals = computeTotals(order, settings, products);
+            const customerValue = order.customer?.name || order.customer?.fb || order.customerCode || "Khách hàng";
+            const customerName = escapeHtml(String(customerValue).trim() || "Khách hàng");
             return `
               <article class="status-order-card">
                 <div>
                   <strong>${order.code}</strong>
                   <span class="helper">${formatDateTime(order.createdAt)}</span>
+                  <p class="helper small">Khách: ${customerName}</p>
                 </div>
                 <p class="helper small">
                   ${formatOrderStatus(order.status)} · ${formatPaymentStatus(order.paymentStatus)}
@@ -1730,6 +1926,9 @@
       .map((product) => renderStatusProductCard(product, settings))
       .join("");
     return `
+      <div class="status-detail-header">
+        ${aggregateMarkup}
+      </div>
       <div class="status-detail-body">
         <div class="status-detail-orders">
           <h4>${info.detailTitle}</h4>
@@ -1752,14 +1951,33 @@
         const info = STATUS_PANEL_INFO[key];
         const bucket = statusData.buckets[key] || [];
         const totals = statusData.totals[key] || { totalJPY: 0, totalVND: 0 };
+        const hasOrders = bucket.length > 0;
+        const noticeBadge =
+          hasOrders && info.notice ? `<span class="status-summary-pulse">${info.notice}</span>` : "";
+        const cardClasses = [
+          "payment-summary-card",
+          "status-summary-card",
+          key === "pending" ? "status-summary-card--pending active" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
         return `
           <article
-            class="payment-summary-card status-summary-card ${key === "pending" ? "active" : ""}"
+            class="${cardClasses}"
             data-status-key="${key}"
+            data-has-orders="${hasOrders ? "1" : "0"}"
           >
-            <p class="helper">${info.helper}</p>
-            <strong>${bucket.length}</strong>
-            <span>JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(totals.totalVND)}</span>
+            <div class="status-summary-header">
+              <p class="helper">${info.helper}</p>
+              ${noticeBadge}
+            </div>
+            <div class="status-summary-figure">
+              <strong>${bucket.length}</strong>
+              <span class="helper">đơn</span>
+            </div>
+            <span class="status-summary-totals">
+              JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(totals.totalVND)}
+            </span>
             <small>${info.label}</small>
           </article>
         `;
@@ -1783,15 +2001,18 @@
     const detail = summary.querySelector("[data-status-detail]");
     const cards = summary.querySelectorAll(".status-summary-card");
     if (!detail || !cards.length) return;
-    const activate = (key) => {
+    const activate = (key, options = {}) => {
       cards.forEach((card) => {
         card.classList.toggle("active", card.dataset.statusKey === key);
       });
       detail.innerHTML = renderStatusDetailPanel(key, statusData, settings, products);
+      if (options.scroll && typeof detail.scrollIntoView === "function") {
+        detail.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     };
     cards.forEach((card) => {
       card.addEventListener("click", () => {
-        activate(card.dataset.statusKey);
+        activate(card.dataset.statusKey, { scroll: true });
       });
     });
     activate("pending");
@@ -3706,6 +3927,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     });
   };
 
+  const ADMIN_NEW_ORDER_WINDOW = 3 * 24 * 60 * 60 * 1000;
+
   const STATUS_OVERVIEW = [
     { status: STATUS.PENDING_QUOTE, label: "Chờ báo giá", hint: "Liên hệ khách khi có báo giá" },
     { status: STATUS.QUOTED_WAITING_PAYMENT, label: "Chờ thanh toán", hint: "Đã gửi hóa đơn" },
@@ -3799,6 +4022,17 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const syncHint = snapshot?.meta?.updatedAt
       ? `Đã cập nhật ${formatNumber(snapshot.products?.length || 0)} sản phẩm`
       : "Chưa đồng bộ";
+    const customers = Object.values(getCustomers());
+    const newCustomerWindow = 7 * 24 * 60 * 60 * 1000;
+    const newCustomerCount = customers.filter(
+      (customer) => (Date.now() - (customer.createdAt || 0)) <= newCustomerWindow
+    ).length;
+    const outstandingCustomerSet = new Set();
+    orders.forEach((order) => {
+      if (order.customerCode && order.paymentStatus !== PAYMENT_STATUS.CONFIRMED) {
+        outstandingCustomerSet.add(order.customerCode);
+      }
+    });
     const cards = [
       {
         value: formatNumber(orderCount),
@@ -3825,11 +4059,21 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         label: "Auto-import",
         hint: autoHintText,
       },
+      {
+        value: formatNumber(customers.length),
+        label: "Khách hàng đã ghi nhận",
+        hint: `${formatNumber(newCustomerCount)} khách mới 7 ngày`,
+      },
+      {
+        value: formatNumber(outstandingCustomerSet.size),
+        label: "Khách chưa thanh toán",
+        hint: "Gộp đơn và theo dõi trạng thái tổng",
+      },
     ];
     container.innerHTML = cards.map(createAdminInsightCard).join("");
   };
 
-  const renderOrdersTable = (container, statusFilter = "all") => {
+  const renderOrdersTable = (container, statusFilter = "all", customerFilter = "") => {
     if (!container) return;
     const products = getProducts();
     const settings = getSettings();
@@ -3837,22 +4081,38 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     if (statusFilter && statusFilter !== "all") {
       ordersList = ordersList.filter((order) => order.status === statusFilter);
     }
+    if (customerFilter) {
+      ordersList = ordersList.filter((order) => order.customerCode === customerFilter);
+    }
     const rows = ordersList.length
       ? ordersList
           .map((order) => {
             const totals = computeTotals(order, settings, products);
+            const customerName = escapeHtml(order.customer?.name || "Khách vãng lai");
+            const phoneLabel = escapeHtml(order.customer?.phone || "Chưa có số điện thoại");
+            const statusLabel = formatOrderStatus(order.status);
+            const paymentLabel = formatPaymentStatus(order.paymentStatus);
+            const orderCode = escapeHtml(order.code || "");
+            const isNew =
+              order.createdAt && Date.now() - order.createdAt <= ADMIN_NEW_ORDER_WINDOW;
+            const newBadge = isNew ? '<span class="badge green badge-inline">Mới</span>' : "";
             return `
-              <tr>
-                <td>${order.code}</td>
-                <td>${order.customerCode}</td>
-                <td>${formatOrderStatus(order.status)}</td>
-                <td>${formatPaymentStatus(order.paymentStatus)}</td>
-                <td>${formatNumber(totals.totalVND)}</td>
-                <td>${renderOrderItems(order, products)}</td>
+              <tr class="order-row${isNew ? " order-row--new" : ""}">
+                <td class="order-customer-cell">
+                  <strong>${customerName}</strong>${newBadge}
+                  <span class="helper">${phoneLabel}</span>
+                </td>
+                <td>${orderCode}</td>
+                <td><span class="status">${statusLabel}</span></td>
+                <td><span class="status">${paymentLabel}</span></td>
+                <td>
+                  JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(totals.totalVND)}
+                </td>
+                <td class="order-items-cell">${renderOrderItems(order, products)}</td>
                 <td>
                   <div class="segment" style="gap:.2rem;">
-                    <button class="btn ghost small" data-action="edit" data-code="${order.code}" type="button">Sửa</button>
-                    <button class="btn ghost small" data-action="delete" data-code="${order.code}" type="button">Xóa</button>
+                    <button class="btn ghost small" data-action="edit" data-code="${orderCode}" type="button">Sửa</button>
+                    <button class="btn ghost small danger" data-action="delete" data-code="${orderCode}" type="button">Xóa</button>
                   </div>
                 </td>
               </tr>
@@ -3862,16 +4122,131 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       : `<tr><td colspan="7">Chưa có đơn hàng.</td></tr>`;
     container.innerHTML = `
       <tr>
+        <th>Khách hàng</th>
         <th>Mã đơn</th>
-        <th>Mã khách</th>
         <th>Trạng thái</th>
         <th>Thanh toán</th>
-        <th>Tổng (VND)</th>
+        <th>Tổng</th>
         <th>Sản phẩm</th>
         <th>Hành động</th>
       </tr>
       ${rows}
     `;
+  };
+
+  const renderAdminOrderLanes = () => {
+    const newOrdersEl = document.getElementById("adminNewOrdersList");
+    const pendingSummaryEl = document.getElementById("adminPendingSummary");
+    const priorityZonesEl = document.getElementById("adminPriorityZones");
+    if (!newOrdersEl && !pendingSummaryEl && !priorityZonesEl) return;
+    const orders = getOrders().filter((order) => order.status !== STATUS.CANCELLED);
+    const settings = getSettings();
+    const products = getProducts();
+    const sortedByCreated = orders
+      .slice()
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const newOrders = sortedByCreated.slice(0, 4);
+    if (newOrdersEl) {
+      newOrdersEl.innerHTML = newOrders.length
+        ? newOrders
+            .map((order) => {
+            const customerName = escapeHtml(order.customer?.name || "Khách vãng lai");
+            const statusLabel = escapeHtml(formatOrderStatus(order.status));
+            const paymentLabel = escapeHtml(formatPaymentStatus(order.paymentStatus));
+            const totals = computeTotals(order, settings, products);
+            const created = order.createdAt ? formatDateTime(order.createdAt) : "-";
+            const safeCode = escapeHtml(order.code || "");
+            return `
+                <div class="admin-lane-item">
+                  <div>
+                    <strong>${customerName}</strong>
+                    <span class="helper small">${statusLabel} · ${paymentLabel}</span>
+                  </div>
+                  <div class="admin-lane-meta">
+                    <span>JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(
+                      totals.totalVND
+                    )}</span>
+                    <span class="helper small">${created}</span>
+                  </div>
+                  <p class="helper small">Mã: ${safeCode}</p>
+                </div>
+              `;
+            })
+            .join("")
+        : `<p class="helper">Chưa có đơn mới.</p>`;
+    }
+    const pendingStatuses = [
+      STATUS.PENDING_QUOTE,
+      STATUS.QUOTED_WAITING_PAYMENT,
+      STATUS.PAYMENT_UNDER_REVIEW,
+    ];
+    const pendingOrders = orders.filter((order) => pendingStatuses.includes(order.status));
+    const pendingTotals = pendingOrders.reduce(
+      (acc, order) => {
+        const totals = computeTotals(order, settings, products);
+        acc.totalJPY += totals.totalJPY;
+        acc.totalVND += totals.totalVND;
+        acc.count += 1;
+        return acc;
+      },
+      { totalJPY: 0, totalVND: 0, count: 0 }
+    );
+    if (pendingSummaryEl) {
+      pendingSummaryEl.innerHTML = pendingTotals.count
+        ? `
+          <div class="admin-lane-summary-row">
+            <strong>${formatNumber(pendingTotals.count)} đơn</strong>
+            <span class="helper small">Chờ thanh toán tổng / bill</span>
+          </div>
+          <div class="admin-lane-summary-row">
+            <span>JPY ${formatNumber(pendingTotals.totalJPY)}</span>
+            <span>VND ${formatNumber(pendingTotals.totalVND)}</span>
+          </div>
+          <p class="helper">Gộp đơn để thanh toán cùng lúc và hạn chế theo dõi lẻ.</p>
+        `
+        : `<p class="helper">Không có đơn đang chờ thanh toán.</p>`;
+    }
+    if (priorityZonesEl) {
+      const statusCounts = orders.reduce((acc, order) => {
+        acc[order.status] = (acc[order.status] || 0) + 1;
+        return acc;
+      }, {});
+      const zoneItems = [
+        {
+          label: "Chờ báo giá",
+          status: STATUS.PENDING_QUOTE,
+          hint: "Chuẩn bị phí ship rõ ràng",
+          color: "rgba(255, 187, 71, 0.15)",
+        },
+        {
+          label: "Chờ thanh toán",
+          status: STATUS.QUOTED_WAITING_PAYMENT,
+          hint: "Nhắc khách, gửi bill",
+          color: "rgba(96, 165, 250, 0.15)",
+        },
+        {
+          label: "Đã xác nhận ship",
+          status: STATUS.SHIP_CONFIRMED,
+          hint: "Theo dõi lộ trình",
+          color: "rgba(102, 252, 241, 0.15)",
+        },
+      ];
+      const zonesMarkup = zoneItems
+        .map((zone) => {
+          const count = statusCounts[zone.status] || 0;
+          return `
+            <div class="admin-priority-zone" style="background:${zone.color}">
+              <div>
+                <strong>${escapeHtml(zone.label)}</strong>
+                <span class="helper small">${escapeHtml(zone.hint)}</span>
+              </div>
+              <span class="badge small">${count} đơn</span>
+            </div>
+          `;
+        })
+        .join("");
+      priorityZonesEl.innerHTML = zonesMarkup;
+    }
   };
 
   const renderOrderSelect = (select, selectedCode = "") => {
@@ -6865,14 +7240,23 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const orderEditDelete = document.getElementById("orderEditDelete");
     const orderEditMessage = document.getElementById("orderEditMessage");
 
-    let editingOrderCode = "";
+    const params = new URLSearchParams(window.location.search);
+    const orderFilterCode = params.get("order") || "";
+    const initialCustomerFilter = params.get("customer") || "";
+    let editingOrderCode = orderFilterCode || "";
+    let currentCustomerFilter = initialCustomerFilter;
 
     const setEditorMessage = (message) => {
       if (orderEditMessage) orderEditMessage.textContent = message;
     };
 
     const refreshOrdersTable = () => {
-      renderOrdersTable(ordersTable, orderStatusFilter ? orderStatusFilter.value : "all");
+      renderOrdersTable(
+        ordersTable,
+        orderStatusFilter ? orderStatusFilter.value : "all",
+        currentCustomerFilter
+      );
+      renderAdminOrderLanes();
     };
 
     const populateOrderEditor = (code) => {
@@ -6924,10 +7308,11 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
     const deleteOrder = (code) => {
       if (!code) return;
-      if (!window.confirm(`Bạn chắc chắn muốn xoá đơn ${code}?`)) return;
+      if (!window.confirm(`Bạn chắc chắn muốn xoá vĩnh viễn đơn ${code}?`)) return;
       const ordersList = getOrders().filter((entry) => entry.code !== code);
       setOrders(ordersList);
-      setEditorMessage(`Đã xoá đơn ${code}.`);
+      setEditorMessage(`Đã xoá vĩnh viễn đơn ${code}.`);
+      showNotification(`Đã xoá vĩnh viễn đơn ${code}.`, "danger");
       editingOrderCode = "";
       refreshOrdersTable();
       updateOrderEditorOptions();
@@ -7019,6 +7404,9 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
     refreshOrdersTable();
     updateOrderEditorOptions();
+    if (initialCustomerFilter && orderEditMessage) {
+      orderEditMessage.textContent = `Đang lọc đơn của khách ${initialCustomerFilter}.`;
+    }
   };
 
   const initAdminQuotes = () => {
@@ -7311,6 +7699,12 @@ const computeTotals = (order, settings, products, overrides = {}) => {
   const initAdminCustomers = () => {
     if (!requireAdminAuth()) return;
     bindAdminLogout();
+    const searchInput = document.getElementById("customerSearch");
+    if (searchInput) {
+      searchInput.addEventListener("input", () => {
+        renderAdminNewCustomers(document.getElementById("customerList"), 12);
+      });
+    }
     renderAllCustomerSections();
   };
 
@@ -7333,10 +7727,11 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     if (exportReport) {
       exportReport.addEventListener("click", () => {
         const rows = [
-          ["orderCode", "customerCode", "status", "totalVND"],
+          ["orderCode", "customerName", "status", "totalVND"],
           ...paidOrders.map((order) => {
             const totals = computeTotals(order, getSettings(), products);
-            return [order.code, order.customerCode, formatOrderStatus(order.status), totals.totalVND];
+            const customerName = order.customer?.name || "Khách hàng";
+            return [order.code, customerName, formatOrderStatus(order.status), totals.totalVND];
           }),
         ];
         const csv = rows.map((row) => row.map((cell) => `"${cell}"`).join(",")).join("\\n");
