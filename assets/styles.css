@@ -2839,6 +2839,195 @@ body[data-page="payment"] #paymentActivity {
   margin-top: 0.5rem;
 }
 
+body[data-page="payment"] .payment-activity-panel {
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 179, 71, 0.25);
+  padding: 1rem;
+  box-shadow: 0 16px 36px rgba(6, 8, 23, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+body[data-page="payment"] .status-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+body[data-page="payment"] .status-tab {
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 179, 71, 0.4);
+  background: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.7rem 0.5rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+body[data-page="payment"] .status-tab.is-active {
+  background: linear-gradient(135deg, rgba(255, 179, 71, 0.22), rgba(96, 165, 250, 0.12));
+  color: var(--text);
+  border-color: rgba(255, 179, 71, 0.8);
+}
+
+body[data-page="payment"] .tab-panels {
+  display: block;
+}
+
+body[data-page="payment"] .tab-panel {
+  display: none;
+}
+
+body[data-page="payment"] .tab-panel.is-active {
+  display: block;
+}
+
+body[data-page="payment"] .pending-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.8rem;
+  border: 1px solid rgba(30, 26, 22, 0.08);
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+body[data-page="payment"] .overview-item {
+  display: flex;
+  flex-direction: column;
+}
+
+body[data-page="payment"] .overview-item strong {
+  font-size: 1.4rem;
+}
+
+body[data-page="payment"] .aggregate-summary {
+  border: 1px dashed rgba(96, 165, 250, 0.4);
+  padding: 0.8rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+body[data-page="payment"] .aggregate-summary.hidden {
+  display: none;
+}
+
+body[data-page="payment"] .aggregate-summary strong {
+  font-size: 1.3rem;
+}
+
+body[data-page="payment"] .pending-orders {
+  display: grid;
+  gap: 0.9rem;
+}
+
+body[data-page="payment"] .pending-order-card {
+  border-radius: var(--radius);
+  border: 1px solid rgba(30, 26, 22, 0.12);
+  padding: 0.85rem;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 20px rgba(6, 8, 23, 0.08);
+  display: grid;
+  gap: 0.6rem;
+  cursor: pointer;
+}
+
+body[data-page="payment"] .pending-order-card.locked {
+  opacity: 0.7;
+}
+
+body[data-page="payment"] .pending-order-card-header,
+body[data-page="payment"] .pending-order-card-body,
+body[data-page="payment"] .pending-order-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+body[data-page="payment"] .pending-order-card-footer {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+body[data-page="payment"] .checkbox-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+body[data-page="payment"] .pending-order-card .status {
+  font-size: 0.75rem;
+}
+
+body[data-page="payment"] .tab-order-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+body[data-page="payment"] .status-card {
+  border-radius: var(--radius);
+  border: 1px solid rgba(30, 26, 22, 0.12);
+  padding: 0.85rem;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 10px 22px rgba(6, 8, 23, 0.08);
+}
+
+body[data-page="payment"] .status-card-head,
+body[data-page="payment"] .status-card-body,
+body[data-page="payment"] .status-card-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+body[data-page="payment"] .status-card-foot {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+body[data-page="payment"] .aggregate-detail-card {
+  text-align: left;
+}
+
+body[data-page="payment"] .aggregate-order-list {
+  margin: 0.6rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  display: grid;
+  gap: 0.3rem;
+}
+
+body[data-page="payment"] .aggregate-actions {
+  margin-top: 0.6rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+@media (max-width: 720px) {
+  body[data-page="payment"] .status-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  body[data-page="payment"] .pending-order-card-header,
+  body[data-page="payment"] .pending-order-card-body,
+  body[data-page="payment"] .pending-order-card-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
 body[data-page="payment"] .status-shell {
   display: grid;
   gap: 1rem;

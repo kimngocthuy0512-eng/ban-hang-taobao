@@ -1782,30 +1782,6 @@
     return `<div class="order-items-detailed">${markup}</div>`;
   };
 
-  const STATUS_PANEL_INFO = {
-    pending: {
-      label: "Chưa thanh toán",
-      helper: "Đơn hàng đang chờ báo giá và thanh toán tổng",
-      notice: "Đang chờ thanh toán gộp, thanh toán một lần khi có giá ship",
-      detailTitle: "Các đơn chưa thanh toán",
-      emptyHint: "Chưa có đơn đang chờ thanh toán.",
-    },
-    shipping: {
-      label: "Đang chờ giao",
-      helper: "Đơn đã xác nhận phí ship và đang trên đường",
-      notice: "Theo dõi lộ trình và sẵn sàng nhận hàng",
-      detailTitle: "Các đơn đang chờ giao",
-      emptyHint: "Chưa có đơn đang giao.",
-    },
-    paid: {
-      label: "Đã thanh toán",
-      helper: "Đơn đã hoàn tất và xác nhận thanh toán",
-      notice: "Thanh toán trọn gói, chuẩn bị bàn giao hàng",
-      detailTitle: "Các đơn đã thanh toán",
-      emptyHint: "Chưa có đơn thanh toán thành công.",
-    },
-  };
-
   const getStatusKeyForOrder = (order) => {
     if (order.status === STATUS.PAID) return "paid";
     if (order.status === STATUS.SHIP_CONFIRMED) return "shipping";
@@ -1830,293 +1806,225 @@
     return { buckets, totals };
   };
 
-  const gatherProductsFromOrders = (orders, products) => {
-    const seen = new Set();
-    const result = [];
-    orders.forEach((order) => {
-      (order.items || []).forEach((item) => {
-        const id = item.id;
-        if (!id || seen.has(id)) return;
-        const product = products.find((entry) => entry.id === id);
-        if (!product) return;
-        seen.add(product.id);
-        result.push(product);
-      });
-    });
-    return result;
-  };
-
-    const renderStatusProductCard = (product, settings) => {
-      if (!product) return "";
-    const price = convertPrice(product.basePrice, settings);
-    const images = getProductImages(product);
-    const thumb = images[0] || "";
-    const safeName = escapeHtml(product.name || "Sản phẩm");
+  const renderPendingOrderCard = (order, settings, products, selection) => {
+    const totals = computeTotals(order, settings, products);
+    const quoteReady = Boolean(order.shipFee && !Number.isNaN(order.shipFee) && order.shipFee > 0);
+    const shippingBadge = quoteReady
+      ? '<span class="status green">Phí ship đã báo</span>'
+      : '<span class="status orange">Chờ admin xác nhận phí ship</span>';
+    const checkboxState = selection.has(order.code) ? "checked" : "";
     return `
-      <article class="status-product-card">
-        <div class="status-product-image">
-          ${
-            thumb
-              ? `<img src="${thumb}" alt="${safeName}" loading="lazy" />`
-              : `<span class="status-product-placeholder">${safeName}</span>`
-          }
+      <article class="pending-order-card ${quoteReady ? "ready" : "locked"}" data-order-code="${order.code}">
+        <div class="pending-order-card-header">
+          <div>
+            <strong>${order.code}</strong>
+            <span class="helper small">${order.items.length} sản phẩm</span>
+          </div>
+          ${shippingBadge}
         </div>
-        <div class="status-product-meta">
-          <strong>${safeName}</strong>
-          <span class="helper">JPY ${formatNumber(price.jpy)} · ${formatCurrency(
-            price.base,
-            settings.baseCurrency
-          )}</span>
+        <div class="pending-order-card-body">
+          <p class="helper">Tổng đơn: JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(
+            totals.totalVND
+          )}</p>
+          <p class="helper">Phí ship: ${
+            quoteReady
+              ? `JPY ${formatNumber(totals.shipJPY)} · VND ${formatNumber(totals.shipVND)}`
+              : "Chờ admin xác nhận phí ship"
+          }</p>
+        </div>
+        <div class="pending-order-card-footer">
+          ${
+            quoteReady
+              ? `
+            <label class="checkbox-toggle">
+              <input type="checkbox" data-aggregate-checkbox data-order-code="${order.code}" ${checkboxState} />
+              <span>Chọn gộp</span>
+            </label>`
+              : `<span class="helper small">Không thể thanh toán trước khi admin báo phí ship.</span>`
+          }
+          <span class="helper small">Chạm để xem chi tiết hoặc tải bill.</span>
         </div>
       </article>
     `;
   };
 
-  const renderStatusDetailPanel = (statusKey, statusData, settings, products) => {
-      const info = STATUS_PANEL_INFO[statusKey];
-    const targetOrders = statusData.buckets[statusKey] || [];
-    const totals = statusData.totals[statusKey] || { totalJPY: 0, totalVND: 0 };
-    const bucketCount = targetOrders.length;
-    const prefixHint =
-      bucketCount && statusKey === "pending"
-        ? `Gộp ${bucketCount} đơn chưa thanh toán để báo giá tổng.`
-        : info.notice || info.helper;
-
-    const aggregateButton =
-      statusKey === "pending" && bucketCount
-        ? `
-        <div class="status-detail-aggregate-actions">
-          <button
-            class="btn primary status-detail-aggregate-btn"
-            data-action="aggregate-pay"
-            data-status-key="${statusKey}"
-            type="button"
-          >
-            Thanh toán gộp · JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(
-              totals.totalVND
-            )}
-          </button>
-        </div>`
-        : "";
-    const aggregateMarkup = `
-      <div class="status-detail-aggregate">
-        <div class="status-detail-aggregate-title">
-          <span>${info.label}</span>
-          ${bucketCount ? `<span class="status-detail-aggregate-chip">${bucketCount} đơn</span>` : ""}
+  const renderPendingPanel = (pendingOrders, totals, settings, products, selection) => {
+    const count = pendingOrders.length;
+    return `
+      <div class="pending-overview">
+        <div class="overview-item">
+          <span>Đơn chờ thanh toán</span>
+          <strong>${count}</strong>
         </div>
-        <strong>JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(totals.totalVND)}</strong>
-        <p class="helper small">${prefixHint}</p>
-        ${aggregateButton}
+        <div class="overview-item">
+          <span>Tổng JPY</span>
+          <strong>JPY ${formatNumber(totals.totalJPY)}</strong>
+        </div>
+        <div class="overview-item">
+          <span>Tổng VND</span>
+          <strong>VND ${formatNumber(totals.totalVND)}</strong>
+        </div>
+        <button class="btn primary" id="aggregatePrimaryBtn" type="button" disabled>Thanh toán gộp</button>
+      </div>
+      <div class="aggregate-summary hidden" id="aggregateSummary">
+        <div>
+          <p class="helper" data-aggregate-count>Đã chọn 0 đơn</p>
+          <strong data-aggregate-total-jpy>JPY 0</strong>
+          <span data-aggregate-total-vnd>VND 0</span>
+        </div>
+        <p class="helper small" data-aggregate-ship>Phí ship tổng: JPY 0 · VND 0</p>
+      </div>
+      <div class="pending-orders" id="pendingOrdersList">
+        ${
+          pendingOrders.length
+            ? pendingOrders
+                .map((order) => renderPendingOrderCard(order, settings, products, selection))
+                .join("")
+            : '<div class="card soft helper">Bạn chưa có đơn nào đang chờ thanh toán.</div>'
+        }
       </div>
     `;
+  };
 
-    const ordersMarkup = targetOrders.length
-      ? targetOrders
+  const renderShippingPanel = (orders, settings, products) => {
+    if (!orders.length) {
+      return '<div class="card soft helper">Chưa có đơn đang giao. Sau khi thanh toán, đơn sẽ xuất hiện tại đây.</div>';
+    }
+    return `
+      <div class="tab-order-list">
+        ${orders
           .map((order) => {
             const totals = computeTotals(order, settings, products);
-            const customerValue = order.customer?.name || order.customer?.fb || order.customerCode || "Khách hàng";
-            const customerName = escapeHtml(String(customerValue).trim() || "Khách hàng");
+            const trackingStatus = order.tracking || order.shipping?.tracking || "Chờ cập nhật vận chuyển";
             return `
-              <article class="status-order-card">
-                <div>
+              <article class="status-card" data-order-code="${order.code}">
+                <div class="status-card-head">
                   <strong>${order.code}</strong>
-                  <span class="helper">${formatDateTime(order.createdAt)}</span>
-                  <p class="helper small">Khách: ${customerName}</p>
+                  <span class="helper small">${trackingStatus}</span>
                 </div>
-                <p class="helper small">
-                  ${formatOrderStatus(order.status)} · ${formatPaymentStatus(order.paymentStatus)}
-                </p>
-                <p class="helper">JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(
-                  totals.totalVND
-                )}</p>
+                <div class="status-card-body">
+                  <p class="helper">JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(totals.totalVND)}</p>
+                  <p class="helper small">Phí ship: JPY ${formatNumber(totals.shipJPY)} · VND ${formatNumber(
+                    totals.shipVND
+                  )}</p>
+                </div>
+                <div class="status-card-foot">
+                  <span class="helper small">Trạng thái: ${formatOrderStatus(order.status)}</span>
+                </div>
               </article>
             `;
           })
-          .join("")
-      : `<div class="status-empty">${info.emptyHint}</div>`;
-    let previewProducts = gatherProductsFromOrders(targetOrders, products);
-    if (!previewProducts.length) {
-      previewProducts = products.slice(0, 4);
-    }
-    const productMarkup = previewProducts
-      .slice(0, 4)
-      .map((product) => renderStatusProductCard(product, settings))
-      .join("");
-    return `
-      <div class="status-detail-header">
-        ${aggregateMarkup}
+          .join("")}
       </div>
-      <div class="status-detail-body">
-        <div class="status-detail-orders">
-          <h4>${info.detailTitle}</h4>
-          ${ordersMarkup}
+    `;
+  };
+
+  const renderPaidPanel = (orders, settings, products) => {
+    if (!orders.length) {
+      return '<div class="card soft helper">Chưa có đơn thanh toán thành công. Khi có đơn, bạn có thể xem lại hoặc mua lại ở đây.</div>';
+    }
+    return `
+      <div class="tab-order-list">
+        ${orders
+          .map((order) => {
+            const totals = computeTotals(order, settings, products);
+            return `
+              <article class="status-card" data-order-code="${order.code}">
+                <div class="status-card-head">
+                  <strong>${order.code}</strong>
+                  <span class="helper small">Hoàn tất ${formatDateTime(order.updatedAt)}</span>
+                </div>
+                <div class="status-card-body">
+                  <p class="helper">JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(totals.totalVND)}</p>
+                  <p class="helper small">Phí ship: JPY ${formatNumber(totals.shipJPY)} · VND ${formatNumber(
+                    totals.shipVND
+                  )}</p>
+                </div>
+                <div class="status-card-foot">
+                  <span class="status green">Đã giao</span>
+                </div>
+              </article>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  };
+
+  const renderPaymentActivityLayout = (statusData, settings, products, selection) => {
+    const pendingOrders = statusData.buckets.pending || [];
+    const shippingOrders = statusData.buckets.shipping || [];
+    const paidOrders = statusData.buckets.paid || [];
+    const pendingTotals = statusData.totals.pending || { totalJPY: 0, totalVND: 0 };
+    return `
+      <div class="payment-activity-panel">
+        <div class="status-tabs" role="tablist">
+          <button class="status-tab is-active" data-tab-control="pending" type="button">Chờ thanh toán</button>
+          <button class="status-tab" data-tab-control="shipping" type="button">Đang giao</button>
+          <button class="status-tab" data-tab-control="paid" type="button">Đã thanh toán</button>
         </div>
-        <div class="status-detail-products">
-          <h4>Sản phẩm gợi ý</h4>
-          <div class="status-product-grid">
-            ${productMarkup}
+        <div class="tab-panels">
+          <div class="tab-panel is-active" data-panel="pending">
+            ${renderPendingPanel(pendingOrders, pendingTotals, settings, products, selection)}
+          </div>
+          <div class="tab-panel" data-panel="shipping">
+            ${renderShippingPanel(shippingOrders, settings, products)}
+          </div>
+          <div class="tab-panel" data-panel="paid">
+            ${renderPaidPanel(paidOrders, settings, products)}
           </div>
         </div>
       </div>
     `;
   };
 
-  const renderPaymentSummary = (statusData, settings, products) => {
-    const keys = ["pending", "shipping", "paid"];
-    const cards = keys
-      .map((key) => {
-        const info = STATUS_PANEL_INFO[key];
-        const bucket = statusData.buckets[key] || [];
-        const totals = statusData.totals[key] || { totalJPY: 0, totalVND: 0 };
-        const hasOrders = bucket.length > 0;
-        const noticeBadge =
-          hasOrders && info.notice ? `<span class="status-summary-pulse">${info.notice}</span>` : "";
-        const cardClasses = [
-          "payment-summary-card",
-          "status-summary-card",
-          key === "pending" ? "status-summary-card--pending active" : "",
-        ]
-          .filter(Boolean)
-          .join(" ");
-        return `
-          <article
-            class="${cardClasses}"
-            data-status-key="${key}"
-            data-has-orders="${hasOrders ? "1" : "0"}"
-          >
-            <div class="status-summary-header">
-              <p class="helper">${info.helper}</p>
-              ${noticeBadge}
-            </div>
-            <div class="status-summary-figure">
-              <strong>${bucket.length}</strong>
-              <span class="helper">đơn</span>
-            </div>
-            <span class="status-summary-totals">
-              JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(totals.totalVND)}
-            </span>
-            <small>${info.label}</small>
-          </article>
-        `;
-      })
+  const buildAggregateSummary = (orders, settings, products) => {
+    const totals = orders.reduce(
+      (acc, order) => {
+        const info = computeTotals(order, settings, products);
+        acc.totalJPY += info.totalJPY;
+        acc.totalVND += info.totalVND;
+        acc.shipJPY += info.shipJPY;
+        acc.shipVND += info.shipVND;
+        acc.codes.push(order.paymentCode || order.code);
+        return acc;
+      },
+      { totalJPY: 0, totalVND: 0, shipJPY: 0, shipVND: 0, codes: [] }
+    );
+    const memo = `Thanh toán gộp ${totals.codes.join(", ")}`;
+    return { ...totals, memo };
+  };
+
+  const renderAggregateDetail = (orders, settings, products) => {
+    const summary = buildAggregateSummary(orders, settings, products);
+    const memo = escapeHtml(summary.memo);
+    const list = orders
+      .map((order) => `<li>${escapeHtml(order.code)} · ${order.items.length} sản phẩm</li>`)
       .join("");
     return `
-      <div class="status-shell">
-        <div class="status-summary-grid">
-          ${cards}
-        </div>
-        <div class="status-detail" data-status-detail>
-          ${renderStatusDetailPanel("pending", statusData, settings, products)}
+      <div class="card payment-basic-info aggregate-detail-card">
+        <h4>Thanh toán gộp</h4>
+        <p class="helper">Tổng ${orders.length} đơn</p>
+        <strong>JPY ${formatNumber(summary.totalJPY)}</strong>
+        <span>VND ${formatNumber(summary.totalVND)}</span>
+        <p class="helper small" data-aggregate-memo="${memo}">${memo}</p>
+        <ul class="aggregate-order-list">
+          ${list}
+        </ul>
+      </div>
+      <div class="card soft">
+        <h4>Thông tin chuyển khoản</h4>
+        <p>${settings.bankJP}</p>
+        <p>${settings.bankVN}</p>
+        <p class="helper">Tổng phí ship: JPY ${formatNumber(summary.shipJPY)} · VND ${formatNumber(
+          summary.shipVND
+        )}</p>
+        <div class="aggregate-actions">
+          <button class="btn primary" id="confirmAggregatePaymentBtn" type="button">Xác nhận đã chuyển khoản</button>
+          <button class="btn ghost small" id="copyAggregateMessageBtn" type="button">Copy nội dung chuyển khoản</button>
         </div>
       </div>
     `;
-  };
-
-    const attachDetailActions = (detail, statusKey, statusData, helpers = {}) => {
-      if (!detail || !statusKey) return;
-      const button = detail.querySelector("[data-action=\"aggregate-pay\"]");
-      if (!button) return;
-      button.addEventListener("click", () => {
-        const bucket = statusData.buckets[statusKey] || [];
-        if (!bucket.length) {
-          showNotification("Không có đơn nào để gộp.", "info");
-          return;
-        }
-        const totals = statusData.totals[statusKey] || { totalJPY: 0, totalVND: 0 };
-        showNotification(
-          `${bucket.length} đơn đã được tổng hợp: JPY ${formatNumber(
-            totals.totalJPY
-          )} · VND ${formatNumber(totals.totalVND)}`,
-          "info",
-          4200
-        );
-        if (typeof helpers.openOrderDetail === "function") {
-          helpers.openOrderDetail(bucket[0]);
-        }
-      });
-    };
-
-    const bindStatusSummary = (statusData, settings, products, helpers = {}) => {
-      const summary = document.querySelector(".status-shell");
-      if (!summary) return;
-      const detail = summary.querySelector("[data-status-detail]");
-      const cards = summary.querySelectorAll(".status-summary-card");
-    if (!detail || !cards.length) return;
-      const activate = (key, options = {}) => {
-        cards.forEach((card) => {
-          card.classList.toggle("active", card.dataset.statusKey === key);
-        });
-        detail.innerHTML = renderStatusDetailPanel(key, statusData, settings, products);
-        attachDetailActions(detail, key, statusData, helpers);
-        if (options.scroll && typeof detail.scrollIntoView === "function") {
-          detail.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      };
-    cards.forEach((card) => {
-      card.addEventListener("click", () => {
-        activate(card.dataset.statusKey, { scroll: true });
-      });
-    });
-    activate("pending");
-  };
-
-  const renderPaymentHistory = (orders) => {
-    const products = getProducts();
-    if (!orders.length) {
-      return `
-        <div class="card soft">
-          <p class="helper">Chưa có lịch sử đơn hàng trên thiết bị, hãy tạo đơn mới để bắt đầu.</p>
-        </div>
-      `;
-    }
-    const reversed = orders.slice().reverse();
-    const history = reversed
-      .map((order, index) => {
-        const totals = computeTotals(order, getSettings(), products);
-        const badge = getOrderPaymentBadge(order);
-        const itemsMarkup = renderOrderItems(order, products);
-        const isLatest = index === 0;
-        return `
-          <article
-            class="history-card ${isLatest ? "history-card--latest" : ""}"
-            data-order-code="${order.code}"
-          >
-            <div class="history-card-summary">
-              <div>
-                <strong>${order.code}</strong>
-                <span class="helper">${formatDateTime(order.createdAt)}</span>
-              </div>
-              <div class="history-card-status">
-                <span class="status ${badge.class}">${badge.label}</span>
-                <span class="helper">${formatPaymentStatus(order.paymentStatus)}</span>
-              </div>
-            </div>
-            <div class="history-card-meta">
-              <span><strong>${formatOrderStatus(order.status)}</strong></span>
-              <span>JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(
-                totals.totalVND
-              )}</span>
-            </div>
-            <div class="history-card-items">
-              ${itemsMarkup}
-            </div>
-            <div class="history-card-actions">
-              <button class="btn ghost small" type="button" data-action="detail" data-order-code="${
-                order.code
-              }">
-                Xem chi tiết
-              </button>
-              <button class="btn primary small" type="button" data-action="pay" data-order-code="${
-                order.code
-              }">
-                Thanh toán
-              </button>
-            </div>
-          </article>
-        `;
-      })
-      .join("");
-    return `<div class="payment-history-list">${history}</div>`;
   };
 
   const RANDOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -3785,17 +3693,109 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       modal.dataset.activeOrder = "";
     };
 
+    const aggregateSelection = new Set();
+
+    const updateAggregateSummary = (pendingOrders, settings, products) => {
+      if (!activity) return;
+      const summaryEl = activity.querySelector("#aggregateSummary");
+      const aggregateBtn = activity.querySelector("#aggregatePrimaryBtn");
+      if (!summaryEl || !aggregateBtn) return;
+      const selected = pendingOrders.filter((order) => aggregateSelection.has(order.code));
+      if (selected.length < 2) {
+        summaryEl.classList.add("hidden");
+        aggregateBtn.disabled = true;
+        summaryEl.querySelector("[data-aggregate-count]")?.textContent = "Đã chọn 0 đơn";
+        summaryEl.querySelector("[data-aggregate-total-jpy]")?.textContent = "JPY 0";
+        summaryEl.querySelector("[data-aggregate-total-vnd]")?.textContent = "VND 0";
+        summaryEl.querySelector("[data-aggregate-ship]")?.textContent = "Phí ship tổng: JPY 0 · VND 0";
+        return;
+      }
+      const aggregateInfo = buildAggregateSummary(selected, settings, products);
+      summaryEl.classList.remove("hidden");
+      aggregateBtn.disabled = false;
+      summaryEl.querySelector("[data-aggregate-count]")?.textContent = `Đã chọn ${selected.length} đơn`;
+      summaryEl.querySelector("[data-aggregate-total-jpy]")?.textContent = `JPY ${formatNumber(
+        aggregateInfo.totalJPY
+      )}`;
+      summaryEl.querySelector("[data-aggregate-total-vnd]")?.textContent = `VND ${formatNumber(
+        aggregateInfo.totalVND
+      )}`;
+      summaryEl.querySelector("[data-aggregate-ship]")?.textContent = `Phí ship tổng: JPY ${formatNumber(
+        aggregateInfo.shipJPY
+      )} · VND ${formatNumber(aggregateInfo.shipVND)}`;
+    };
+
+    const handleAggregatePayment = (pendingOrders, settings, products) => {
+      const selectedOrders = pendingOrders.filter((order) => aggregateSelection.has(order.code));
+      if (selectedOrders.length < 2) {
+        showNotification("Chọn ít nhất 2 đơn để thanh toán gộp.", "info");
+        return;
+      }
+      if (!modal || !modalContent) return;
+      modalContent.innerHTML = renderAggregateDetail(selectedOrders, settings, products);
+      modal.dataset.activeOrder = "AGGREGATE";
+      modal.classList.remove("hidden");
+      copyCustomerCodeToClipboard();
+      const memo = modalContent.querySelector("[data-aggregate-memo]")?.getAttribute("data-aggregate-memo") || "";
+      const copyBtn = modalContent.querySelector("#copyAggregateMessageBtn");
+      const confirmBtn = modalContent.querySelector("#confirmAggregatePaymentBtn");
+      copyBtn?.addEventListener("click", () => {
+        if (!memo) return;
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+          navigator.clipboard
+            .writeText(memo)
+            .then(() => showNotification("Đã sao chép nội dung chuyển khoản.", "success"))
+            .catch(() => showNotification("Không thể sao chép nội dung.", "error"));
+        } else {
+          showOrderNotice("Trình duyệt không hỗ trợ sao chép tự động.");
+        }
+      });
+      confirmBtn?.addEventListener("click", () => {
+        showOrderNotice("Sau khi chuyển khoản xong, vui lòng tải bill trong chi tiết đơn.");
+      });
+    };
+
+    const attachTabControls = (container) => {
+      if (!container) return;
+      const buttons = container.querySelectorAll("[data-tab-control]");
+      const panels = container.querySelectorAll("[data-panel]");
+      buttons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const target = button.dataset.tabControl;
+          buttons.forEach((btn) => btn.classList.toggle("is-active", btn === button));
+          panels.forEach((panel) => panel.classList.toggle("is-active", panel.dataset.panel === target));
+        });
+      });
+    };
+
+    const attachPendingInteractions = (statusData, settings, products) => {
+      if (!activity) return;
+      const pendingOrders = statusData.buckets.pending || [];
+      const checkboxes = activity.querySelectorAll("[data-aggregate-checkbox]");
+      checkboxes.forEach((checkbox) => {
+        const code = checkbox.dataset.orderCode;
+        checkbox.checked = aggregateSelection.has(code);
+        checkbox.addEventListener("change", () => {
+          if (checkbox.checked) aggregateSelection.add(code);
+          else aggregateSelection.delete(code);
+          updateAggregateSummary(pendingOrders, settings, products);
+        });
+        checkbox.addEventListener("click", (event) => event.stopPropagation());
+      });
+      const aggregateBtn = activity.querySelector("#aggregatePrimaryBtn");
+      aggregateBtn?.addEventListener("click", () => handleAggregatePayment(pendingOrders, settings, products));
+      updateAggregateSummary(pendingOrders, settings, products);
+    };
+
     const renderActivity = () => {
       if (!activity) return;
       const settings = getSettings();
       const products = getProducts();
       const orders = getCustomerOrders();
       const statusData = buildPaymentStatusData(orders, settings, products);
-      activity.innerHTML = `
-        ${renderPaymentSummary(statusData, settings, products)}
-        ${renderPaymentHistory(orders)}
-      `;
-      bindStatusSummary(statusData, settings, products, { openOrderDetail });
+      activity.innerHTML = renderPaymentActivityLayout(statusData, settings, products, aggregateSelection);
+      attachTabControls(activity);
+      attachPendingInteractions(statusData, settings, products);
     };
 
     const findOrderByCode = (code) => {
@@ -3805,8 +3805,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
     const handleActivityClick = (event) => {
       const nearby = event.target.closest("[data-order-code]");
-      const card = event.target.closest(".history-card");
-      const code = nearby?.dataset?.orderCode || card?.dataset?.orderCode;
+      const code = nearby?.dataset?.orderCode;
       if (!code) return;
       const order = findOrderByCode(code);
       if (!order) return;
