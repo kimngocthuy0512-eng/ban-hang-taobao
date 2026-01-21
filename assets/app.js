@@ -3957,23 +3957,6 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     }).join("");
   };
 
-  const fetchAutoImportStatusPayload = async () => {
-    const settings = getSettings();
-    const endpoint = buildAutoImportUrl(settings, "/auto-import/status");
-    if (!endpoint) return null;
-    try {
-      const response = await fetch(endpoint, {
-        cache: "no-store",
-        headers: settings.apiKey ? { "x-api-key": settings.apiKey } : {},
-      });
-      ensureImporterSupported(response, "Không lấy được trạng thái auto import.");
-      return await response.json();
-    } catch (error) {
-      console.warn("Auto import status unavailable:", error);
-      return null;
-    }
-  };
-
   const createAdminInsightCard = ({ value, label, hint }) => `
     <div class="card soft admin-insight-card">
       <strong>${escapeHtml(value)}</strong>
@@ -3982,13 +3965,6 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     </div>
   `;
 
-  const updateDashboardAutoImportHint = (stateLabel, detailLine) => {
-    const hintEl = document.getElementById("dashboardAutoImportHint");
-    if (!hintEl) return;
-    const detailSegment = detailLine ? ` · ${detailLine}` : "";
-    hintEl.textContent = `Auto import: ${stateLabel || "chưa khởi chạy"}${detailSegment}`;
-  };
-
   const renderAdminInsights = async (container) => {
     if (!container) return;
     const placeholder = `<div class="card soft admin-insight-card"><p>Đang thu thập dữ liệu...</p></div>`;
@@ -3996,32 +3972,12 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const settings = getSettings();
     const orders = getOrders();
     const products = getProducts();
-    const visibleProducts = getVisibleProducts().length;
-    const snapshot = getSnapshot();
     const orderCount = orders.length;
     const totalRevenueVND = orders.reduce((sum, order) => {
       const totals = computeTotals(order, settings, products);
       return sum + (totals.totalVND || 0);
     }, 0);
     const paidOrders = orders.filter((order) => order.paymentStatus === PAYMENT_STATUS.CONFIRMED);
-    const syncTimestamp = snapshot?.meta?.updatedAt || settings.lastSync;
-    const autoImportPayload = await fetchAutoImportStatusPayload();
-    const autoState = autoImportPayload?.state || {};
-    const autoStatusLabel = autoState.running ? "Đang chạy" : "Tạm dừng";
-    const autoStatusHint = autoState.message
-      ? autoState.message
-      : autoImportPayload
-      ? "Sẵn sàng"
-      : "Chưa khởi tạo";
-    const autoLogSnippet = autoImportPayload?.log
-      ? autoImportPayload.log.split("\n").slice(-2).join(" / ")
-      : "";
-    const autoHintText = [autoStatusHint, autoLogSnippet].filter(Boolean).join(" · ");
-    updateDashboardAutoImportHint(autoStatusLabel, autoHintText);
-    const syncDisplay = syncTimestamp ? formatDateTime(syncTimestamp) : "Chưa sync";
-    const syncHint = snapshot?.meta?.updatedAt
-      ? `Đã cập nhật ${formatNumber(snapshot.products?.length || 0)} sản phẩm`
-      : "Chưa đồng bộ";
     const customers = Object.values(getCustomers());
     const newCustomerWindow = 7 * 24 * 60 * 60 * 1000;
     const newCustomerCount = customers.filter(
@@ -4033,6 +3989,21 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         outstandingCustomerSet.add(order.customerCode);
       }
     });
+    const pendingStatuses = [
+      STATUS.PENDING_QUOTE,
+      STATUS.QUOTED_WAITING_PAYMENT,
+      STATUS.PAYMENT_UNDER_REVIEW,
+    ];
+    const pendingOrders = orders.filter((order) => pendingStatuses.includes(order.status));
+    const pendingTotals = pendingOrders.reduce(
+      (acc, order) => {
+        const totals = computeTotals(order, settings, products);
+        acc.totalJPY += totals.totalJPY;
+        acc.totalVND += totals.totalVND;
+        return acc;
+      },
+      { totalJPY: 0, totalVND: 0 }
+    );
     const cards = [
       {
         value: formatNumber(orderCount),
@@ -4040,34 +4011,21 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         hint: `${formatNumber(paidOrders.length)} đơn đã thanh toán`,
       },
       {
-        value: formatCurrency(totalRevenueVND, "VND"),
-        label: "Doanh thu ước tính (VND)",
-        hint: `${formatNumber(paidOrders.length)} đơn đã xác nhận`,
+        value: `${formatNumber(pendingOrders.length)} đơn`,
+        label: "Đang chờ xử lý",
+        hint: `Giá trị: JPY ${formatNumber(pendingTotals.totalJPY)} · VND ${formatNumber(
+          pendingTotals.totalVND
+        )}`,
       },
       {
-        value: formatNumber(visibleProducts),
-        label: "Sản phẩm hiển thị",
-        hint: `${formatNumber(products.length)} mục trong kho`,
-      },
-      {
-        value: syncDisplay,
-        label: "Lần sync gần nhất",
-        hint: syncHint,
-      },
-      {
-        value: autoStatusLabel,
-        label: "Auto-import",
-        hint: autoHintText,
-      },
-      {
-        value: formatNumber(customers.length),
-        label: "Khách hàng đã ghi nhận",
-        hint: `${formatNumber(newCustomerCount)} khách mới 7 ngày`,
+        value: formatNumber(newCustomerCount),
+        label: "Khách mới 7 ngày",
+        hint: "Ưu tiên phản hồi khách mới",
       },
       {
         value: formatNumber(outstandingCustomerSet.size),
         label: "Khách chưa thanh toán",
-        hint: "Gộp đơn và theo dõi trạng thái tổng",
+        hint: "Gộp đơn thành báo giá tổng",
       },
     ];
     container.innerHTML = cards.map(createAdminInsightCard).join("");
@@ -4257,7 +4215,11 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       return "";
     }
     select.innerHTML = ordersList
-      .map((order) => `<option value="${order.code}">${order.code}</option>`)
+      .map((order) => {
+        const customerLabel = escapeHtml(order.customer?.name || "Khách hàng");
+        const displayLabel = `${customerLabel} · ${escapeHtml(order.code || "")}`;
+        return `<option value="${order.code}">${displayLabel}</option>`;
+      })
       .join("");
     const nextCode = selectedCode || ordersList[ordersList.length - 1].code;
     select.value = nextCode;
@@ -4267,26 +4229,6 @@ const computeTotals = (order, settings, products, overrides = {}) => {
   const initAdminDashboard = () => {
     if (!requireAdminAuth()) return;
     bindAdminLogout();
-    const autoImportQuickBtn = document.getElementById("dashboardAutoImportRun");
-    const autoImportOpenBtn = document.getElementById("dashboardAutoImportOpen");
-    if (autoImportQuickBtn) {
-      autoImportQuickBtn.addEventListener("click", async () => {
-        autoImportQuickBtn.disabled = true;
-        try {
-          await runAutoImport();
-        } finally {
-          autoImportQuickBtn.disabled = false;
-          renderAdminInsights(document.getElementById("overviewStats")).catch((error) => {
-            console.error("Không thể làm mới insight sau auto import:", error);
-          });
-        }
-      });
-    }
-    if (autoImportOpenBtn) {
-      autoImportOpenBtn.addEventListener("click", () => {
-        window.location.href = "admin-settings.html#autoImport";
-      });
-    }
     renderStatusStats(document.getElementById("statusStats"));
     renderAdminInsights(document.getElementById("overviewStats")).catch((error) => {
       console.error("Không thể tải thông tin tổng quan admin:", error);

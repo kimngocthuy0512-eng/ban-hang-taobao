@@ -46,67 +46,46 @@
         <div class="section-header">
           <h2>Trung tâm điều hành Order Hub</h2>
           <div class="line"></div>
-          <p>Điều khiển mọi luồng dữ liệu, ưu tiên khách hàng mới và xử lý đơn hàng theo quy trình chuyên nghiệp.</p>
+          <p>Điều phối mọi luồng dữ liệu trong một góc nhìn gọn gàng, hiện đại và phản hồi khách hàng với tốc độ cao.</p>
         </div>
-        <div class="admin-control-grid">
-          <div class="hero-card hero-insight admin-hero-metrics">
-            <div class="hero-card-header">
-              <h3>Bảng số liệu trọng điểm</h3>
-              <p>Đơn hàng, doanh thu và kho đều nằm gọn trong một góc nhìn.</p>
-            </div>
+        <div class="admin-hero-grid">
+          <article class="hero-card hero-stats">
+            <header class="hero-card-header">
+              <h3>Bảng số liệu trọng yếu</h3>
+              <p>Doanh thu, đơn hàng, khách mới và đầu việc quan trọng đều nằm trong tầm mắt.</p>
+            </header>
             <div class="status-summary-grid" id="overviewStats"></div>
             <div class="status-stacked-grid" id="statusStats"></div>
-          </div>
-          <div class="hero-card hero-auto admin-hero-actions">
-            <div class="hero-card-header">
-              <h3>Bảng điều khiển</h3>
-              <p>Thao tác nhanh cho auto-import, cổng thanh toán và liên lạc khách.</p>
-            </div>
-            <div class="segment hero-actions">
-              <button class="btn primary" id="dashboardAutoImportRun" type="button">
-                Chạy auto import
-              </button>
-              <button class="btn ghost" id="dashboardAutoImportOpen" type="button">
-                Mở Auto import
-              </button>
-            </div>
-            <p class="helper" id="dashboardAutoImportHint">Auto import: chưa khởi chạy.</p>
-            <div class="admin-control-meta">
-              <div>
-                <p class="helper">Cổng thanh toán</p>
-                <span class="status orange">Chờ giá ship</span>
-              </div>
-              <div>
-                <p class="helper">Thông báo Messenger</p>
-                <strong>Chuẩn bị gửi khi có giá mới</strong>
+            <div class="hero-cta">
+              <p class="helper">Điểm nhanh hành động.</p>
+              <div class="hero-actions hero-actions--dashboard">
+                <a class="btn ghost small" href="admin-orders.html">Đơn hàng</a>
+                <a class="btn ghost small" href="admin-payments.html">Thanh toán</a>
+                <a class="btn ghost small" href="admin-customers.html">Khách hàng</a>
               </div>
             </div>
-          </div>
+          </article>
         </div>
         <div class="admin-shortcuts-grid">
           <a class="card admin-link" href="admin-products.html">
             <h3>Sản phẩm</h3>
-            <p>Nhanh chóng cập nhật kho và ưu tiên hàng mới.</p>
+            <p>Cập nhật kho và ưu tiên hàng mới.</p>
           </a>
           <a class="card admin-link" href="admin-orders.html">
             <h3>Đơn hàng</h3>
-            <p>Xử lý trạng thái, gắn tag ưu tiên và theo dõi tiến trình.</p>
+            <p>Theo dõi trạng thái và quy trình ship chặt chẽ.</p>
           </a>
           <a class="card admin-link" href="admin-quotes.html">
             <h3>Báo giá</h3>
-            <p>Nhập phí ship, tick mở cổng thanh toán ngay.</p>
-          </a>
-          <a class="card admin-link" href="admin-payments.html">
-            <h3>Thanh toán</h3>
-            <p>Xác nhận bill nhanh và khoá cổng sau khi khách gửi.</p>
+            <p>Nhập phí ship và mở cổng khi chuẩn.</p>
           </a>
           <a class="card admin-link" href="admin-tracking.html">
             <h3>Lộ trình</h3>
-            <p>Ánh xạ chuyến hàng và cập nhật ETA tức thì.</p>
+            <p>Cập nhật hành trình và ETA tức thì.</p>
           </a>
           <a class="card admin-link" href="admin-settings.html">
             <h3>Cấu hình</h3>
-            <p>Quyền admin, sync và tích hợp.</p>
+            <p>Kiểm soát sync, quyền và tích hợp.</p>
           </a>
         </div>
       </section>

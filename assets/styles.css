@@ -437,19 +437,41 @@ textarea {
 }
 
 .hero-actions {
+  display: flex;
   gap: 0.4rem;
   flex-wrap: wrap;
 }
 
-.admin-control-grid {
+.admin-hero-grid {
   display: grid;
-  gap: 1.3rem;
-  grid-template-columns: minmax(320px, 1fr) minmax(280px, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.2rem;
   margin-bottom: 1.2rem;
 }
 
-.admin-hero-metrics {
-  min-height: 320px;
+.hero-card.hero-stats {
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.hero-cta {
+  margin-top: 0.6rem;
+  padding-top: 0.9rem;
+  border-top: 1px dashed rgba(0, 0, 0, 0.08);
+  display: grid;
+  gap: 0.55rem;
+}
+
+.hero-cta .helper {
+  margin: 0;
+}
+
+.hero-actions--dashboard {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
 }
 
 .customer-management-shell {
@@ -602,7 +624,7 @@ textarea {
 }
 
 @media (max-width: 960px) {
-  .admin-control-grid {
+  .admin-hero-grid {
     grid-template-columns: 1fr;
   }
 }
