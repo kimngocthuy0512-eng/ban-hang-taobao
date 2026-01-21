@@ -2830,6 +2830,12 @@ body[data-page="payment"] .status-shell {
   margin-bottom: 1.2rem;
 }
 
+@media (max-width: 720px) {
+  body[data-page="payment"] .status-shell {
+    grid-template-columns: 1fr;
+  }
+}
+
 .status-summary-grid {
   display: grid;
   gap: 0.7rem;
@@ -2839,6 +2845,12 @@ body[data-page="payment"] .status-shell {
 @media (max-width: 900px) {
   body[data-page="payment"] .status-summary-grid {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  body[data-page="payment"] .status-summary-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -2957,6 +2969,15 @@ body[data-page="payment"] .status-detail-aggregate-title {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+body[data-page="payment"] .status-detail-aggregate-actions {
+  margin-top: 0.6rem;
+}
+
+body[data-page="payment"] .status-detail-aggregate-btn {
+  width: 100%;
+  justify-content: center;
 }
 
 body[data-page="payment"] .status-detail-aggregate-title span {

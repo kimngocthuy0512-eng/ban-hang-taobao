@@ -1846,8 +1846,8 @@
     return result;
   };
 
-  const renderStatusProductCard = (product, settings) => {
-    if (!product) return "";
+    const renderStatusProductCard = (product, settings) => {
+      if (!product) return "";
     const price = convertPrice(product.basePrice, settings);
     const images = getProductImages(product);
     const thumb = images[0] || "";
@@ -1872,8 +1872,8 @@
     `;
   };
 
-  const renderStatusDetailPanel = (statusKey, statusData, settings, products) => {
-    const info = STATUS_PANEL_INFO[statusKey];
+    const renderStatusDetailPanel = (statusKey, statusData, settings, products) => {
+      const info = STATUS_PANEL_INFO[statusKey];
     const targetOrders = statusData.buckets[statusKey] || [];
     const totals = statusData.totals[statusKey] || { totalJPY: 0, totalVND: 0 };
     const bucketCount = targetOrders.length;
@@ -1882,6 +1882,22 @@
         ? `Gộp ${bucketCount} đơn chưa thanh toán để báo giá tổng.`
         : info.notice || info.helper;
 
+    const aggregateButton =
+      statusKey === "pending" && bucketCount
+        ? `
+        <div class="status-detail-aggregate-actions">
+          <button
+            class="btn primary status-detail-aggregate-btn"
+            data-action="aggregate-pay"
+            data-status-key="${statusKey}"
+            type="button"
+          >
+            Thanh toán gộp · JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(
+              totals.totalVND
+            )}
+          </button>
+        </div>`
+        : "";
     const aggregateMarkup = `
       <div class="status-detail-aggregate">
         <div class="status-detail-aggregate-title">
@@ -1890,6 +1906,7 @@
         </div>
         <strong>JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(totals.totalVND)}</strong>
         <p class="helper small">${prefixHint}</p>
+        ${aggregateButton}
       </div>
     `;
 
@@ -1995,21 +2012,22 @@
     `;
   };
 
-  const bindStatusSummary = (statusData, settings, products) => {
-    const summary = document.querySelector(".status-shell");
-    if (!summary) return;
-    const detail = summary.querySelector("[data-status-detail]");
-    const cards = summary.querySelectorAll(".status-summary-card");
+    const bindStatusSummary = (statusData, settings, products) => {
+      const summary = document.querySelector(".status-shell");
+      if (!summary) return;
+      const detail = summary.querySelector("[data-status-detail]");
+      const cards = summary.querySelectorAll(".status-summary-card");
     if (!detail || !cards.length) return;
-    const activate = (key, options = {}) => {
-      cards.forEach((card) => {
-        card.classList.toggle("active", card.dataset.statusKey === key);
-      });
-      detail.innerHTML = renderStatusDetailPanel(key, statusData, settings, products);
-      if (options.scroll && typeof detail.scrollIntoView === "function") {
-        detail.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    };
+      const activate = (key, options = {}) => {
+        cards.forEach((card) => {
+          card.classList.toggle("active", card.dataset.statusKey === key);
+        });
+        detail.innerHTML = renderStatusDetailPanel(key, statusData, settings, products);
+        attachDetailActions(detail, key, statusData);
+        if (options.scroll && typeof detail.scrollIntoView === "function") {
+          detail.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      };
     cards.forEach((card) => {
       card.addEventListener("click", () => {
         activate(card.dataset.statusKey, { scroll: true });
@@ -2154,6 +2172,28 @@
       phone: payload.phone || existing?.phone,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
+    };
+
+    const attachDetailActions = (detail, statusKey, statusData) => {
+      if (!detail || !statusKey) return;
+      const button = detail.querySelector("[data-action=\"aggregate-pay\"]");
+      if (!button) return;
+      button.addEventListener("click", () => {
+        const bucket = statusData.buckets[statusKey] || [];
+        if (!bucket.length) {
+          showNotification("Không có đơn nào để gộp.", "info");
+          return;
+        }
+        const totals = statusData.totals[statusKey] || { totalJPY: 0, totalVND: 0 };
+        showNotification(
+          `${bucket.length} đơn đã được tổng hợp: JPY ${formatNumber(
+            totals.totalJPY
+          )} · VND ${formatNumber(totals.totalVND)}`,
+          "info",
+          4200
+        );
+        openOrderDetail(bucket[0]);
+      });
     };
     setCustomers(customers);
     return deviceCode;
