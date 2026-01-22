@@ -1067,6 +1067,7 @@
       const limit = id === "customerList" ? 12 : 6;
       renderAdminNewCustomers(document.getElementById(id), limit);
     });
+    refreshAdminInsights();
   };
 
   const removeCustomerByCode = (code) => {
@@ -1236,6 +1237,7 @@
       renderAdminOrderQueue(orderPanel, orderMeta).catch((error) => {
         console.error("Không thể cập nhật panel sau event:", error);
       });
+      refreshAdminWorkflow();
     }
   };
 
@@ -1287,6 +1289,9 @@
   const getVisibleProducts = () =>
     getProducts().filter((product) => !product.hidden && !product.deletedAt);
 
+  const isPriorityProductEntry = (product) =>
+    Boolean(product?.primary || product?.priority === "primary" || product?.flags?.includes?.("priority"));
+
   const getFilteredAndSortedProducts = (
     searchInput,
     priceMin,
@@ -1319,16 +1324,27 @@
       return matchQuery && matchPrice && matchSize && matchCategory && matchSizeMode;
     });
 
-    if (sortFilter.value === "price-asc") {
+    const sortValue = sortFilter.value;
+    const toProductStamp = (entry) => toTimestamp(entry?.createdAt);
+    if (sortValue === "price-asc") {
       results = results.sort(
         (a, b) => applyProductFee(a.basePrice) - applyProductFee(b.basePrice)
       );
     }
-    if (sortFilter.value === "price-desc") {
+    if (sortValue === "price-desc") {
       results = results.sort(
         (a, b) => applyProductFee(b.basePrice) - applyProductFee(a.basePrice)
       );
     }
+    if (sortValue === "new" || !sortValue) {
+      results = results.sort((a, b) => toProductStamp(b) - toProductStamp(a));
+    }
+    results = results.sort((a, b) => {
+      const pa = isPriorityProductEntry(a) ? 0 : 1;
+      const pb = isPriorityProductEntry(b) ? 0 : 1;
+      if (pa !== pb) return pa - pb;
+      return toProductStamp(b) - toProductStamp(a);
+    });
     return results;
   };
 
@@ -2386,48 +2402,63 @@
     const keys = ["pending", "shipping", "paid"];
     const cards = keys
       .map((key) => {
-        const info = STATUS_PANEL_INFO[key];
         const bucket = statusData.buckets[key] || [];
         const totals = statusData.totals[key] || { totalJPY: 0, totalVND: 0 };
-        const hasOrders = bucket.length > 0;
-        const noticeBadge =
-          hasOrders && info.notice ? `<span class="status-summary-pulse">${info.notice}</span>` : "";
-        const cardClasses = [
-          "payment-summary-card",
-          "status-summary-card",
-          key === "pending" ? "status-summary-card--pending active" : "",
-        ]
-          .filter(Boolean)
-          .join(" ");
         return `
           <article
-            class="${cardClasses}"
+            class="status-pill ${key === "pending" ? "active" : ""}"
             data-status-key="${key}"
-            data-has-orders="${hasOrders ? "1" : "0"}"
+            data-has-orders="${bucket.length ? "1" : "0"}"
           >
-            <div class="status-summary-header">
-              <p class="helper">${info.helper}</p>
-              ${noticeBadge}
-            </div>
-            <div class="status-summary-figure">
+            <div>
               <strong>${bucket.length}</strong>
-              <span class="helper">đơn</span>
+              <span>${key === "pending" ? "chờ xử lý" : key === "shipping" ? "đã xác nhận ship" : "đã thanh toán"}</span>
             </div>
-            <span class="status-summary-totals">
-              JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(totals.totalVND)}
-            </span>
-            <small>${info.label}</small>
+            <small>JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(totals.totalVND)}</small>
           </article>
         `;
       })
       .join("");
+    const pendingBucket = statusData.buckets.pending || [];
+    const pendingTotals = statusData.totals.pending || { totalJPY: 0, totalVND: 0 };
+    const actionable = statusData?.metadata?.pending?.actionableCount || 0;
+    const blocked = statusData?.metadata?.pending?.blockedCount || 0;
     return `
-      <div class="status-shell">
-        <div class="status-summary-grid">
+      <div class="status-shell compact">
+        <div class="status-summary-grid compact">
           ${cards}
         </div>
-        <div class="status-detail" data-status-detail>
-          ${renderStatusDetailPanel("pending", statusData, settings, products)}
+        <div class="status-detail compact" data-status-detail data-compact="true">
+          <div class="status-summary-line">
+            <span>Chờ thanh toán</span>
+            <span class="status orange">Ưu tiên cao</span>
+          </div>
+          <div class="status-summary-line">
+            <p class="helper small">Tổng ${pendingBucket.length} đơn chờ xử lý</p>
+            <strong>JPY ${formatNumber(pendingTotals.totalJPY)} · VND ${formatNumber(pendingTotals.totalVND)}</strong>
+          </div>
+          <div class="status-summary-line subtle">
+            <span>${actionable} đơn sẵn sàng thanh toán · ${blocked} đơn chờ phí ship</span>
+          </div>
+          <div class="status-actions compact">
+            <p class="helper small">
+              Thanh toán gộp chỉ kích hoạt khi có tối thiểu 2 đơn đã xác nhận phí ship.
+            </p>
+          </div>
+          <div class="payment-empty-state compact">
+            <strong>Không còn đơn đang chờ thanh toán.</strong>
+            <p class="helper small">Bạn có thể tạo đơn mới hoặc chờ admin xác nhận phí ship.</p>
+          </div>
+          <div class="status-detail-body compact">
+            <div class="status-detail-orders">
+              <h4>Đơn sẵn sàng thanh toán</h4>
+              <div class="status-empty">Chưa có đơn nào sẵn sàng.</div>
+            </div>
+            <div class="status-detail-orders">
+              <h4>Đơn chờ admin báo phí ship</h4>
+              <div class="status-empty">Tất cả đơn đã có phí ship.</div>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -2602,16 +2633,19 @@
     const summary = document.querySelector(".status-shell");
     if (!summary) return null;
     const detail = summary.querySelector("[data-status-detail]");
-    const cards = summary.querySelectorAll(".status-summary-card");
+    const cards = summary.querySelectorAll(".status-pill");
     if (!detail || !cards.length) return null;
+    const isCompactDetail = detail.dataset?.compact === "true";
     const activate = (key, options = {}) => {
       cards.forEach((card) => {
         card.classList.toggle("active", card.dataset.statusKey === key);
       });
-      detail.innerHTML = renderStatusDetailPanel(key, statusData, settings, products);
-      attachDetailActions(detail, key, statusData, helpers);
       if (options.scroll && typeof detail.scrollIntoView === "function") {
         detail.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      if (!isCompactDetail) {
+        detail.innerHTML = renderStatusDetailPanel(key, statusData, settings, products);
+        attachDetailActions(detail, key, statusData, helpers);
       }
     };
     activate(initialKey);
@@ -3221,19 +3255,20 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       const images = getProductImages(product);
       const heroImage = images[0] || "";
       const highlightBadge = (product.tags && product.tags.length ? product.tags[0] : "New").toString().toUpperCase();
+      const isPriority = isPriorityProductEntry(product);
       const displayName = escapeHtml(getDisplayName(product));
       const imageMarkup = heroImage
         ? `<img class="product-image-inner" src="${escapeHtml(heroImage)}" loading="eager" alt="${displayName}" />`
         : "";
       return `
-      <article class="card product-card ${wished ? "is-wish" : ""}" data-product-card data-id="${product.id}" tabindex="0">
+      <article class="card product-card ${wished ? "is-wish" : ""} ${isPriority ? "is-priority" : ""}" data-product-card data-id="${product.id}" tabindex="0">
         <button class="wish-btn ${wished ? "active" : ""}" type="button" data-wish="${product.id}" aria-pressed="${wished}" aria-label="${wished ? "Bỏ lưu" : "Lưu"}">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 21s-6.7-4.4-9.3-8.2C.6 9.4 2.2 5.8 5.7 5.1c2-.4 3.8.3 5 1.8 1.2-1.5 3-2.2 5-1.8 3.5.7 5.1 4.3 3 7.7C18.7 16.6 12 21 12 21z"></path>
           </svg>
         </button>
         <div class="product-image">
-          <span class="product-highlight-badge">${highlightBadge}</span>
+          <span class="product-highlight-badge">${isPriority ? "Ưu tiên" : highlightBadge}</span>
           ${imageMarkup}
           <div class="product-image-gloss"></div>
           <div class="product-meta-overlay">
@@ -3764,6 +3799,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const stickyBuySize = document.getElementById("stickyBuySize");
     const stickyAdd = document.getElementById("stickyAdd");
     const stickyBuyNow = document.getElementById("stickyBuyNow");
+    const productImageSkeleton = document.getElementById("productImageSkeleton");
 
     if (!product || product.hidden || product.deletedAt) {
       if (productMain) productMain.innerHTML = "";
@@ -3798,15 +3834,36 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const palette = product.palette?.length ? product.palette : ["#2a2f45", "#374766", "#ffb347"];
     const images = getProductImages(product);
 
-    if (images.length) {
-      productMain.innerHTML = `<img src="${images[0]}" alt="${product.name}" />`;
-      productMain.style.background = "none";
-    } else {
+    const showDefaultBackground = () => {
+      if (!productMain) return;
       productMain.innerHTML = "";
+      productMain.classList.remove("has-image", "is-loading");
+      if (productImageSkeleton) productImageSkeleton.classList.add("hidden");
       productMain.style.background = `linear-gradient(140deg, ${palette.join(", ")})`;
-    }
+    };
+
+    const renderProductImage = (src) => {
+      if (!productMain) return;
+      productMain.innerHTML = "";
+      productMain.style.background = "none";
+      productMain.classList.add("has-image", "is-loading");
+      if (productImageSkeleton) productImageSkeleton.classList.remove("hidden");
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = product.name;
+      img.loading = "lazy";
+      img.decoding = "async";
+      const cleanup = () => {
+        productMain.classList.remove("is-loading");
+        if (productImageSkeleton) productImageSkeleton.classList.add("hidden");
+      };
+      img.addEventListener("load", cleanup);
+      img.addEventListener("error", cleanup);
+      productMain.appendChild(img);
+    };
 
     if (images.length) {
+      renderProductImage(images[0]);
       productThumbs.innerHTML = images
         .map(
           (src, index) =>
@@ -3817,6 +3874,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       productThumbs.innerHTML = palette
         .map((color) => `<div class="card" style="height:70px;background:${color};"></div>`)
         .join("");
+      showDefaultBackground();
     }
     const tagMarkup = (product.tags || []).map((tag) => `<span class="tag">${tag}</span>`).join("");
     productTags.innerHTML = `
@@ -3919,7 +3977,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       if (!btn) return;
       const src = btn.dataset.src;
       if (!src) return;
-      productMain.innerHTML = `<img src="${src}" alt="${product.name}" />`;
+      renderProductImage(src);
       document.querySelectorAll(".thumb").forEach((node) => node.classList.remove("active"));
       btn.classList.add("active");
     });
@@ -4395,6 +4453,42 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       modal.dataset.paymentRunMemo = "";
     };
 
+    const updatePaymentHeroStats = (statusData, settings) => {
+      const pendingCountEl = document.querySelector("[data-payment-hero-pending-count]");
+      const pendingTotalEl = document.querySelector("[data-payment-hero-pending-total]");
+      const gateStateEl = document.querySelector("[data-payment-hero-gate-state]");
+      const gateMetaEl = document.querySelector("[data-payment-hero-gate-meta]");
+    const pendingBucket = statusData?.buckets?.pending || [];
+    const shippingBucket = statusData?.buckets?.shipping || [];
+    const paidBucket = statusData?.buckets?.paid || [];
+    const pendingTotals = statusData?.totals?.pending || { totalJPY: 0, totalVND: 0 };
+      const countText = `${formatNumber(pendingBucket.length)} đơn`;
+      if (pendingCountEl) pendingCountEl.textContent = countText;
+      if (pendingTotalEl) {
+        pendingTotalEl.textContent = `JPY ${formatNumber(pendingTotals.totalJPY)} · VND ${formatNumber(
+          pendingTotals.totalVND
+        )}`;
+      }
+      const gateOpen = Boolean(settings?.paymentGateOpen);
+      if (gateStateEl) {
+        gateStateEl.textContent = gateOpen ? "Đang mở" : "Đang đóng";
+        gateStateEl.dataset.gateState = gateOpen ? "open" : "closed";
+      }
+    if (gateMetaEl) {
+      const statusHint = gateOpen
+        ? "Admin đã bật cổng, khách có thể chuyển khoản"
+        : "Đợi admin mở cổng thanh toán";
+      const lastSyncMessage = settings?.lastSync
+        ? ` · Cập nhật ${formatDateTime(settings.lastSync)}`
+        : "";
+      gateMetaEl.textContent = `${statusHint}${lastSyncMessage}`;
+    }
+    const shippingCountEl = document.querySelector("[data-payment-hero-shipping-count]");
+    const paidCountEl = document.querySelector("[data-payment-hero-paid-count]");
+    if (shippingCountEl) shippingCountEl.textContent = formatNumber(shippingBucket.length);
+    if (paidCountEl) paidCountEl.textContent = formatNumber(paidBucket.length);
+  };
+
     const generateBillPreview = (file) =>
       new Promise((resolve) => {
         const reader = new FileReader();
@@ -4542,6 +4636,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       currentStatusData = buildPaymentStatusData(orders, currentSettings, currentProducts);
       currentPaymentRuns = buildPaymentRuns(orders, currentSettings, currentProducts);
       aggregateSelection.clear();
+      updatePaymentHeroStats(currentStatusData, currentSettings);
       activity.innerHTML = `
         ${renderPaymentSummary(currentStatusData, currentSettings, currentProducts)}
         ${renderPaymentHistory(orders, currentSettings, currentProducts)}
@@ -4755,6 +4850,25 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
     renderActivity();
 
+    const heroActions = document.querySelector(".payment-hero-actions");
+    heroActions?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-hero-action]");
+      if (!button) return;
+      const action = button.dataset.heroAction;
+      const heroTarget = button.dataset.heroTarget;
+      if (action === "focus" && heroTarget && setActiveStatus) {
+        activeStatus = heroTarget;
+        setActiveStatus(heroTarget, { scroll: true });
+        return;
+      }
+      if (action === "scroll" && heroTarget) {
+        const targetElement = document.querySelector(heroTarget);
+        if (targetElement && typeof targetElement.scrollIntoView === "function") {
+          targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
+    });
+
     if (highlightOrderCode) {
       const focusOrder = findOrderByCode(highlightOrderCode);
       if (focusOrder) {
@@ -4860,6 +4974,41 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     { status: STATUS.CANCELLED, label: "Đã hủy", hint: "Cần xác nhận nguyên nhân" },
   ];
 
+  const ADMIN_WORKFLOW_STEPS = [
+    {
+      key: "pending-quote",
+      label: "Chuẩn bị báo giá",
+      helper: "Xác định ship fee và bill",
+      statuses: [STATUS.PENDING_QUOTE],
+      actionLabel: "Mở đơn chờ báo giá",
+      actionStatus: STATUS.PENDING_QUOTE,
+    },
+    {
+      key: "awaiting-payment",
+      label: "Chờ thanh toán",
+      helper: "Đã gửi bill và cần đối soát",
+      statuses: [STATUS.QUOTED_WAITING_PAYMENT],
+      actionLabel: "Truy cập đơn chờ thanh toán",
+      actionStatus: STATUS.QUOTED_WAITING_PAYMENT,
+    },
+    {
+      key: "under-review",
+      label: "Đang xác nhận bill",
+      helper: "Admin kiểm tra chứng từ",
+      statuses: [STATUS.PAYMENT_UNDER_REVIEW],
+      actionLabel: "Xem đơn đang kiểm tra",
+      actionStatus: STATUS.PAYMENT_UNDER_REVIEW,
+    },
+    {
+      key: "ship-confirmed",
+      label: "Đã xác nhận ship",
+      helper: "Chuẩn bị giao hàng & messenger",
+      statuses: [STATUS.SHIP_CONFIRMED],
+      actionLabel: "Kiểm tra lộ trình",
+      actionStatus: STATUS.SHIP_CONFIRMED,
+    },
+  ];
+
   const renderStatusStats = (container) => {
     if (!container) return;
     const ordersList = getOrders();
@@ -4870,14 +5019,78 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     container.innerHTML = STATUS_OVERVIEW.map((entry) => {
       const count = counts[entry.status] || 0;
       return `
-        <div class="card soft status-card" data-status="${entry.status}">
-          <span class="status-card-badge">•</span>
-          <strong>${count}</strong>
-          <p>${entry.label}</p>
-          <span class="hint">${entry.hint}</span>
+        <div class="admin-status-pill" data-status="${entry.status}">
+          <div>
+            <strong>${count}</strong>
+            <span>${entry.label}</span>
+          </div>
+          <span class="helper small">${entry.hint}</span>
         </div>
       `;
     }).join("");
+  };
+
+  const renderAdminWorkflow = (container) => {
+    if (!container) return;
+    const ordersList = getOrders();
+    const settings = getSettings();
+    const products = getProducts();
+    const markup = ADMIN_WORKFLOW_STEPS.map((step) => {
+      const stepOrders = ordersList.filter((order) => step.statuses.includes(order.status));
+      const count = stepOrders.length;
+      const totals = stepOrders.reduce(
+        (acc, order) => {
+          const computed = computeTotals(order, settings, products);
+          acc.totalJPY += computed.totalJPY;
+          acc.totalVND += computed.totalVND;
+          return acc;
+        },
+        { totalJPY: 0, totalVND: 0 }
+      );
+      const lastUpdate = stepOrders.reduce(
+        (max, order) => Math.max(max, order.updatedAt || order.createdAt || 0),
+        0
+      );
+      const statusValue = count
+        ? `Giá trị: JPY ${formatNumber(totals.totalJPY)} · VND ${formatNumber(totals.totalVND)}`
+        : "Chưa có đơn trong giai đoạn này.";
+      const timeHint = lastUpdate ? `Cập nhật ${formatDateTime(lastUpdate)}` : "Chưa có cập nhật";
+      return `
+        <article class="card admin-workflow-card">
+          <header>
+            <div>
+              <strong>${escapeHtml(step.label)}</strong>
+              <span class="helper">${escapeHtml(step.helper)}</span>
+            </div>
+            <span class="badge small">${count} đơn</span>
+          </header>
+          <p>${escapeHtml(statusValue)}</p>
+          <footer>
+            <button
+              class="btn ghost small"
+              type="button"
+              data-workflow-action="${escapeHtml(step.actionStatus)}"
+            >
+              ${escapeHtml(step.actionLabel)}
+            </button>
+            <span class="helper small">${escapeHtml(timeHint)}</span>
+          </footer>
+        </article>
+      `;
+    });
+    container.innerHTML = markup.join("");
+  };
+
+  const refreshAdminWorkflow = () => renderAdminWorkflow(document.getElementById("adminWorkflowGrid"));
+
+  const handleAdminWorkflowAction = (event) => {
+    const button = event.target.closest("[data-workflow-action]");
+    if (!button) return;
+    const status = button.dataset.workflowAction;
+    const target = status
+      ? `admin-orders.html?status=${encodeURIComponent(status)}`
+      : "admin-orders.html";
+    window.location.href = target;
   };
 
   const createAdminInsightCard = ({ value, label, hint }) => `
@@ -4952,6 +5165,486 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       },
     ];
     container.innerHTML = cards.map(createAdminInsightCard).join("");
+    const newOrderCountEl = document.getElementById("adminNewOrderCountLabel");
+    if (newOrderCountEl) {
+      newOrderCountEl.textContent = `${formatNumber(newOrders.length)} đơn mới`;
+    }
+    const paymentGateStateEl = document.getElementById("adminPaymentGateState");
+    if (paymentGateStateEl) {
+      paymentGateStateEl.textContent = settings.paymentGateOpen
+        ? "Cổng thanh toán đang mở"
+        : "Cổng thanh toán đang đóng";
+    }
+  };
+
+  const createAdminInsightMarkup = (card) => {
+    const value = card.value || "";
+    const label = card.label || "";
+    const hint = card.hint || "";
+    return `
+      <article class="card soft admin-insight-card">
+        <strong>${escapeHtml(value)}</strong>
+        <p>${escapeHtml(label)}</p>
+        ${hint ? `<span class="hint">${escapeHtml(hint)}</span>` : ""}
+      </article>
+    `;
+  };
+
+  const sumOrderTotals = (ordersList, settings, products) =>
+    ordersList.reduce(
+      (acc, order) => {
+        const totals = computeTotals(order, settings, products);
+        acc.totalJPY += totals.totalJPY;
+        acc.totalVND += totals.totalVND;
+        return acc;
+      },
+      { totalJPY: 0, totalVND: 0 }
+    );
+
+  const getProductStockValues = (product) => {
+    if (!product) return [];
+    const stocks = [];
+    const pushStock = (value) => {
+      const numeric = Number(value);
+      if (!Number.isNaN(numeric)) stocks.push(numeric);
+    };
+    if (Array.isArray(product.variants)) {
+      product.variants.forEach((variant) => pushStock(variant.stock));
+    }
+    if (product.stock && typeof product.stock === "object") {
+      Object.values(product.stock).forEach(pushStock);
+    }
+    if (typeof product.stock === "number") {
+      pushStock(product.stock);
+    }
+    return stocks;
+  };
+
+  const isProductLowStock = (product) => {
+    const stocks = getProductStockValues(product);
+    if (!stocks.length) return false;
+    return Math.min(...stocks) <= 2;
+  };
+
+  const buildAdminInsightCards = (page) => {
+    const orders = getOrders();
+    const products = getProducts();
+    const customers = Object.values(getCustomers());
+    const settings = getSettings();
+    const now = Date.now();
+    const pendingStatuses = [
+      STATUS.PENDING_QUOTE,
+      STATUS.QUOTED_WAITING_PAYMENT,
+      STATUS.PAYMENT_UNDER_REVIEW,
+    ];
+    const pendingOrders = orders.filter((order) => pendingStatuses.includes(order.status));
+    const readyStatuses = [STATUS.SHIP_CONFIRMED, STATUS.PAID];
+    const readyOrders = orders.filter((order) => readyStatuses.includes(order.status));
+    const paidOrders = orders.filter((order) => order.paymentStatus === PAYMENT_STATUS.CONFIRMED);
+    const quoteOrders = orders.filter((order) =>
+      [STATUS.PENDING_QUOTE, STATUS.QUOTED_WAITING_PAYMENT].includes(order.status)
+    );
+    const awaitingPaymentOrders = orders.filter(
+      (order) =>
+        order.status === STATUS.QUOTED_WAITING_PAYMENT &&
+        order.paymentStatus !== PAYMENT_STATUS.CONFIRMED
+    );
+    const outstandingOrders = orders.filter(
+      (order) => order.paymentStatus !== PAYMENT_STATUS.CONFIRMED
+    );
+    const etaOrders = orders.filter((order) => order.eta && order.eta.trim());
+    const trackingOrders = orders.filter((order) => order.tracking && order.tracking.trim());
+    const billSubmittedCount = orders.filter(
+      (order) => order.billSubmitted || order.billPreview || order.billFileName
+    ).length;
+    const fbOrders = orders.filter((order) => order.customer?.fb).length;
+    const newOrders = orders.filter(
+      (order) => now - (order.createdAt || 0) <= ADMIN_NEW_ORDER_WINDOW
+    );
+    const newCustomerWindow = 7 * 24 * 60 * 60 * 1000;
+    const newCustomers = customers.filter(
+      (customer) => now - (customer.createdAt || 0) <= newCustomerWindow
+    );
+    const outstandingCustomerCodes = new Set(
+      outstandingOrders.map((order) => order.customerCode).filter(Boolean)
+    );
+    const categories = new Set(
+      products
+        .map((product) => (product.category || "Chưa phân loại").trim())
+        .filter(Boolean)
+    );
+    const hiddenCount = products.filter((product) => product.hidden).length;
+    const visibleCount = getVisibleProducts().length;
+    const lowStockCount = products.filter(isProductLowStock).length;
+
+    const pendingTotals = sumOrderTotals(pendingOrders, settings, products);
+    const awaitingTotals = sumOrderTotals(awaitingPaymentOrders, settings, products);
+    const readyTotals = sumOrderTotals(readyOrders, settings, products);
+    const quoteTotals = sumOrderTotals(quoteOrders, settings, products);
+    const outstandingTotals = sumOrderTotals(outstandingOrders, settings, products);
+    const paidTotals = sumOrderTotals(paidOrders, settings, products);
+
+    switch (page) {
+      case "admin-dashboard":
+        return [
+          {
+            value: `${formatNumber(orders.length)} đơn`,
+            label: "Tổng đơn hàng",
+            hint: `${formatNumber(paidOrders.length)} đơn đã thanh toán`,
+          },
+          {
+            value: `${formatNumber(pendingOrders.length)} đơn`,
+            label: "Đang xử lý",
+            hint: `Giá trị: JPY ${formatNumber(pendingTotals.totalJPY)} · VND ${formatNumber(
+              pendingTotals.totalVND
+            )}`,
+          },
+          {
+            value: `${formatNumber(newOrders.length)} đơn`,
+            label: "Đơn mới 3 ngày",
+            hint: "Ưu tiên phản hồi khách mới",
+          },
+          {
+            value: `${formatNumber(outstandingCustomerCodes.size)} khách`,
+            label: "Khách chưa thanh toán",
+            hint: `Công nợ: ${formatNumber(outstandingTotals.totalVND)} ₫`,
+          },
+        ];
+      case "admin-products":
+        return [
+          {
+            value: `${formatNumber(products.length)} sp`,
+            label: "Tổng sản phẩm",
+            hint: `${formatNumber(categories.size)} danh mục`,
+          },
+          {
+            value: `${formatNumber(visibleCount)} hiển thị`,
+            label: "Đang bán",
+            hint: `Ẩn: ${formatNumber(hiddenCount)} sp`,
+          },
+          {
+            value: `${formatNumber(lowStockCount)} danh mục`,
+            label: "Cảnh báo low stock",
+            hint: "Stock ≤2, cần kiểm tra kho",
+          },
+          {
+            value: `${formatNumber(categories.size)} danh mục`,
+            label: "Phân loại",
+            hint: "Cập nhật tag & category đều đặn",
+          },
+        ];
+      case "admin-orders":
+        return [
+          {
+            value: `${formatNumber(newOrders.length)} đơn`,
+            label: "Đơn mới 3 ngày",
+            hint: `Trong tổng ${formatNumber(orders.length)} đơn`,
+          },
+          {
+            value: `${formatNumber(awaitingPaymentOrders.length)} đơn`,
+            label: "Chờ thanh toán",
+            hint: `Giá trị: JPY ${formatNumber(awaitingTotals.totalJPY)} · VND ${formatNumber(
+              awaitingTotals.totalVND
+            )}`,
+          },
+          {
+            value: `${formatNumber(readyOrders.length)} đơn`,
+            label: "Đã xác nhận ship",
+            hint: `Giá trị: JPY ${formatNumber(readyTotals.totalJPY)} · VND ${formatNumber(
+              readyTotals.totalVND
+            )}`,
+          },
+          {
+            value: `${formatNumber(pendingOrders.length)} đơn`,
+            label: "Đang xử lý tổng quát",
+            hint: `Đã gửi bill: ${formatNumber(billSubmittedCount)}`,
+          },
+        ];
+      case "admin-quotes":
+        return [
+          {
+            value: `${formatNumber(pendingOrders.length)} đơn`,
+            label: "Chờ báo giá",
+            hint: `Giá trị: JPY ${formatNumber(quoteTotals.totalJPY)} · VND ${formatNumber(
+              quoteTotals.totalVND
+            )}`,
+          },
+          {
+            value: `${formatNumber(awaitingPaymentOrders.length)} đơn`,
+            label: "Đợi thanh toán",
+            hint: "Gửi bill, mở cổng thanh toán",
+          },
+          {
+            value: `${formatNumber(fbOrders)} đơn`,
+            label: "Có Facebook",
+            hint: "Nhắn Messenger ngay khi có bill",
+          },
+        ];
+      case "admin-payments":
+        return [
+          {
+            value: `${formatNumber(awaitingPaymentOrders.length)} đơn`,
+            label: "Chờ xác nhận thanh toán",
+            hint: `Giá trị: JPY ${formatNumber(awaitingTotals.totalJPY)} · VND ${formatNumber(
+              awaitingTotals.totalVND
+            )}`,
+          },
+          {
+            value: `${formatNumber(billSubmittedCount)} đơn`,
+            label: "Bill đã upload",
+            hint: "Kiểm tra chứng từ & đối soát",
+          },
+          {
+            value: settings.paymentGateOpen ? "Mở" : "Đóng",
+            label: "Cổng thanh toán",
+            hint: settings.paymentGateOpen
+              ? `Cập nhật ${formatDateTime(settings.lastSync || Date.now())}`
+              : "Đang đóng",
+          },
+          {
+            value: `${formatNumber(paidOrders.length)} đơn`,
+            label: "Thanh toán đã xác nhận",
+            hint: `VND ${formatNumber(paidTotals.totalVND)}`,
+          },
+        ];
+      case "admin-tracking":
+        return [
+          {
+            value: `${formatNumber(etaOrders.length)} đơn`,
+            label: "ETA đã cập nhật",
+            hint: "Theo dõi lịch nhận hàng",
+          },
+          {
+            value: `${formatNumber(trackingOrders.length)} đơn`,
+            label: "Có lộ trình",
+            hint: "Cập nhật tracking link",
+          },
+          {
+            value: `${formatNumber(readyOrders.length)} đơn`,
+            label: "Sẵn sàng giao",
+            hint: `Giá trị: JPY ${formatNumber(readyTotals.totalJPY)} · VND ${formatNumber(
+              readyTotals.totalVND
+            )}`,
+          },
+        ];
+      case "admin-customers":
+        return [
+          {
+            value: `${formatNumber(customers.length)} khách`,
+            label: "Khách hàng ghi nhận",
+            hint: `${formatNumber(newCustomers.length)} khách mới 7 ngày`,
+          },
+          {
+            value: `${formatNumber(outstandingCustomerCodes.size)} khách`,
+            label: "Khách đang nợ",
+            hint: `Tổng công nợ: ${formatNumber(outstandingTotals.totalVND)} ₫`,
+          },
+          {
+            value: `${formatNumber(customers.filter((entry) => entry.fb).length)} khách`,
+            label: "Có Facebook",
+            hint: "Nhắn Messenger để nhắc thanh toán",
+          },
+          {
+            value: `${formatNumber(newCustomers.length)} khách`,
+            label: "Khách mới 7 ngày",
+            hint: "Ưu tiên xử lý đơn đầu tiên",
+          },
+        ];
+      case "admin-settings":
+        return [
+          {
+            value: settings.syncEndpoint ? "Đã cấu hình" : "Chưa có",
+            label: "URL đồng bộ",
+            hint: settings.syncEndpoint || "Chưa khai báo",
+          },
+          {
+            value: settings.importEndpoint ? "Đã cấu hình" : "Chưa có",
+            label: "Crawler Import",
+            hint: settings.importEndpoint || "Chưa khai báo",
+          },
+          {
+            value: settings.paymentGateOpen ? "Mở" : "Đóng",
+            label: "Cổng thanh toán",
+            hint: settings.paymentGateOpen ? "Khách có thể chuyển khoản" : "Hoàn tất báo giá trước",
+          },
+          {
+            value: `JPY ${formatNumber(settings.rateJPY)} · VND ${formatNumber(
+              settings.rateVND
+            )}`,
+            label: "Tỷ giá hiện tại",
+            hint: settings.rateUpdated ? `Cập nhật ${formatDateTime(settings.rateUpdated)}` : "",
+          },
+        ];
+      case "admin-reports":
+        const pendingOrders = orders.filter((order) => pendingStatuses.includes(order.status));
+        const pendingReportTotals = sumOrderTotals(pendingOrders, settings, products);
+        return [
+          {
+            value: `${formatNumber(paidTotals.totalVND)} ₫`,
+            label: "Doanh thu đã thu",
+            hint: `${formatNumber(paidOrders.length)} đơn đã TT`,
+          },
+          {
+            value: `${formatNumber(pendingOrders.length)} đơn`,
+            label: "Đang xử lý",
+            hint: `Giá trị: JPY ${formatNumber(pendingReportTotals.totalJPY)} · VND ${formatNumber(
+              pendingReportTotals.totalVND
+            )}`,
+          },
+          {
+            value: `${formatNumber(orders.length)} đơn`,
+            label: "Tổng đơn",
+            hint: `Đã thu: ${formatNumber(paidTotals.totalVND)} ₫`,
+          },
+        ];
+      default:
+        return [];
+    }
+  };
+
+  const renderAdminPageInsights = (page) => {
+    const container = document.querySelector("[data-admin-insights]");
+    if (!container) return;
+    const cards = buildAdminInsightCards(page);
+    if (!cards.length) {
+      container.innerHTML = "";
+      return;
+    }
+    container.innerHTML = cards.map(createAdminInsightMarkup).join("");
+  };
+
+  const refreshAdminInsights = () => renderAdminPageInsights(document.body.dataset.page);
+
+  const ADMIN_QUICK_LINKS = {
+    orders: "admin-orders.html",
+    payments: "admin-payments.html",
+    products: "admin-products.html",
+    customers: "admin-customers.html",
+    settings: "admin-settings.html",
+  };
+
+  const ADMIN_SEARCH_DEFAULT_HINT = "Nhập mã đơn, tên khách hoặc sản phẩm để tìm nhanh.";
+
+  const findOrderMatch = (term, orders) => {
+    const normalized = term.toLowerCase();
+    const equals = (value) => (value || "").toLowerCase() === normalized;
+    const includes = (value) => (value || "").toLowerCase().includes(normalized);
+    const exact = orders.find(
+      (order) => equals(order.code) || equals(order.paymentCode)
+    );
+    if (exact) return exact;
+    return orders.find(
+      (order) =>
+        includes(order.code) ||
+        includes(order.paymentCode) ||
+        includes(order.customer?.name) ||
+        includes(order.customer?.phone) ||
+        includes(order.customer?.fb)
+    );
+  };
+
+  const findCustomerMatch = (term, customers) => {
+    const normalized = term.toLowerCase();
+    const equals = (value) => (value || "").toLowerCase() === normalized;
+    const includes = (value) => (value || "").toLowerCase().includes(normalized);
+    return (
+      customers.find(
+        (customer) =>
+          equals(customer.code) ||
+          equals(customer.phone) ||
+          equals(customer.fb)
+      ) ||
+      customers.find(
+        (customer) =>
+          includes(customer.name) ||
+          includes(customer.phone) ||
+          includes(customer.fb || "")
+      )
+    );
+  };
+
+  const findProductMatch = (term, products) => {
+    const normalized = term.toLowerCase();
+    const equals = (value) => (value || "").toLowerCase() === normalized;
+    const includes = (value) => (value || "").toLowerCase().includes(normalized);
+    return (
+      products.find(
+        (product) => equals(product.id) || equals(product.name) || equals(product.sourceUrl)
+      ) ||
+      products.find(
+        (product) => includes(product.name) || includes((product.tags || []).join(" "))
+      )
+    );
+  };
+
+  const runAdminSearch = (term, feedback) => {
+    const input = term.trim();
+    if (!input) {
+      if (feedback) feedback.textContent = ADMIN_SEARCH_DEFAULT_HINT;
+      return false;
+    }
+    const normalized = input.toLowerCase();
+    const orders = getOrders();
+    const products = getProducts();
+    const customers = Object.values(getCustomers());
+    const order = findOrderMatch(normalized, orders);
+    if (order) {
+      const code = order.code || order.paymentCode || "";
+      if (code) {
+        window.location.href = `admin-orders.html?order=${encodeURIComponent(code)}`;
+        return true;
+      }
+    }
+    const customer = findCustomerMatch(normalized, customers);
+    if (customer?.code) {
+      window.location.href = `admin-orders.html?customer=${encodeURIComponent(customer.code)}`;
+      return true;
+    }
+    const product = findProductMatch(normalized, products);
+    if (product?.id) {
+      window.location.href = `admin-products.html?product=${encodeURIComponent(product.id)}`;
+      return true;
+    }
+    if (feedback) {
+      feedback.textContent = `Không tìm thấy "${term}".`;
+    }
+    return false;
+  };
+
+  const initAdminGlobalTools = () => {
+    const searchInput = document.getElementById("adminGlobalSearch");
+    const searchButton = document.getElementById("adminSearchButton");
+    const feedback = document.getElementById("adminSearchFeedback");
+    const quickLinks = Array.from(document.querySelectorAll("[data-admin-quick]"));
+    const triggerSearch = () => runAdminSearch(searchInput?.value || "", feedback);
+    if (feedback) {
+      feedback.textContent = ADMIN_SEARCH_DEFAULT_HINT;
+    }
+    if (searchInput) {
+      searchInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          triggerSearch();
+        } else if (feedback) {
+          feedback.textContent = ADMIN_SEARCH_DEFAULT_HINT;
+        }
+      });
+      searchInput.addEventListener("input", () => {
+        if (feedback) feedback.textContent = ADMIN_SEARCH_DEFAULT_HINT;
+      });
+    }
+    if (searchButton) {
+      searchButton.addEventListener("click", () => {
+        triggerSearch();
+      });
+    }
+    quickLinks.forEach((button) => {
+      button.addEventListener("click", () => {
+        const target = button.dataset.adminQuick;
+        const url = ADMIN_QUICK_LINKS[target] || "admin-orders.html";
+        window.location.href = url;
+      });
+    });
   };
 
   const renderOrdersTable = (container, statusFilter = "all", customerFilter = "") => {
@@ -5156,6 +5849,16 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     renderAdminInsights(document.getElementById("overviewStats")).catch((error) => {
       console.error("Không thể tải thông tin tổng quan admin:", error);
     });
+    const workflowGrid = document.getElementById("adminWorkflowGrid");
+    const workflowRefreshBtn = document.getElementById("adminWorkflowRefresh");
+    const refreshWorkflowSection = () => refreshAdminWorkflow();
+    refreshWorkflowSection();
+    if (workflowGrid) {
+      workflowGrid.addEventListener("click", handleAdminWorkflowAction);
+    }
+    if (workflowRefreshBtn) {
+      workflowRefreshBtn.addEventListener("click", refreshWorkflowSection);
+    }
     const orderPanel = document.getElementById("adminOrdersPanel");
     const orderMeta = document.getElementById("adminOrderRefreshMeta");
     const orderRefreshBtn = document.getElementById("adminOrderRefresh");
@@ -5168,6 +5871,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       orderRefreshBtn.addEventListener("click", refreshOrders);
     }
     renderAllCustomerSections();
+    refreshAdminInsights();
   };
 
   const initAdminSettings = () => {
@@ -5708,6 +6412,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     if (taobaoFetchProduct) {
       taobaoFetchProduct.addEventListener("click", fetchTaobaoProductDetails);
     }
+    refreshAdminInsights();
   };
 
   const initAdminProducts = () => {
@@ -5769,7 +6474,9 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
     if (!productList) return;
 
-    let activeProductId = "";
+    const urlParams = new URLSearchParams(window.location.search);
+    const highlightProductId = urlParams.get("product") || "";
+    let activeProductId = highlightProductId || "";
     let importedImages = [];
     let bulkQueue = [];
     let bulkQueuePrices = new Map();
@@ -7280,6 +7987,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       const settings = getSettings();
       if (!items.length) {
         productList.innerHTML = "<div class=\"card\">Chưa có sản phẩm.</div>";
+        refreshAdminInsights();
         return;
       }
       productList.innerHTML = items
@@ -7311,11 +8019,12 @@ const computeTotals = (order, settings, products, overrides = {}) => {
                   product.hidden ? "Hiện" : "Ẩn"
                 }</button>
                 <button class="btn ghost small" data-action="remove" type="button">Xoá</button>
-              </div>
             </div>
-          `;
-        })
-        .join("");
+          </div>
+        `;
+      })
+      .join("");
+      refreshAdminInsights();
     };
 
     const updateProductStore = (callback) => {
@@ -8082,6 +8791,10 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     }
 
     renderProductList();
+    if (highlightProductId) {
+      const product = getProducts().find((entry) => entry.id === highlightProductId);
+      if (product) fillProductForm(product);
+    }
   };
 
   const initAdminOrders = () => {
@@ -8104,12 +8817,32 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const orderEditSave = document.getElementById("orderEditSave");
     const orderEditDelete = document.getElementById("orderEditDelete");
     const orderEditMessage = document.getElementById("orderEditMessage");
+    const orderFilterChips = Array.from(
+      document.querySelectorAll(".admin-filter-chips .chip")
+    );
+    const syncActiveOrderChip = () => {
+      if (!orderFilterChips.length) return;
+      const target = (orderStatusFilter?.value || "all").trim() || "all";
+      orderFilterChips.forEach((chip) => {
+        chip.classList.toggle("active", chip.dataset.orderStatus === target);
+      });
+    };
 
     const params = new URLSearchParams(window.location.search);
     const orderFilterCode = params.get("order") || "";
     const initialCustomerFilter = params.get("customer") || "";
+    const statusParam = params.get("status");
     let editingOrderCode = orderFilterCode || "";
     let currentCustomerFilter = initialCustomerFilter;
+
+    if (orderStatusFilter && statusParam) {
+      const hasOption = Array.from(orderStatusFilter.options).some(
+        (option) => option.value === statusParam
+      );
+      if (hasOption) {
+        orderStatusFilter.value = statusParam;
+      }
+    }
 
     const setEditorMessage = (message) => {
       if (orderEditMessage) orderEditMessage.textContent = message;
@@ -8122,6 +8855,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         currentCustomerFilter
       );
       renderAdminOrderLanes();
+      syncActiveOrderChip();
+      refreshAdminInsights();
     };
 
     const populateOrderEditor = (code) => {
@@ -8170,6 +8905,15 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       editingOrderCode = nextCode;
       populateOrderEditor(editingOrderCode);
     };
+
+    orderFilterChips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const status = chip.dataset.orderStatus || "all";
+        if (orderStatusFilter) orderStatusFilter.value = status;
+        refreshOrdersTable();
+        chip.blur();
+      });
+    });
 
     const deleteOrder = (code) => {
       if (!code) return;
@@ -8342,10 +9086,11 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         if (shipCurrency) shipCurrency.value = "JPY";
         if (quoteNote) quoteNote.value = order.note || "";
       }
-      if (adminOrderItems) {
-        adminOrderItems.innerHTML = renderOrderItems(order, products);
-      }
-    };
+    if (adminOrderItems) {
+      adminOrderItems.innerHTML = renderOrderItems(order, products);
+    }
+    refreshAdminInsights();
+  };
 
     const updateOrder = (callback) => {
       const ordersList = getOrders();
@@ -8478,6 +9223,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         }
       }
     };
+    refreshAdminInsights();
 
     const updateOrder = (callback) => {
       const ordersList = getOrders();
@@ -8544,6 +9290,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       if (!order) return;
       orderEta.value = order.eta || "";
       orderTracking.value = order.tracking || "";
+      refreshAdminInsights();
     };
 
     if (orderSelect) {
@@ -8623,6 +9370,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         URL.revokeObjectURL(url);
       });
     }
+    refreshAdminInsights();
   };
 
   const initReveal = () => {
@@ -8664,6 +9412,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     patchProductsForDefaults();
     refreshLiveRates();
     initOrderStream();
+    initAdminGlobalTools();
     const page = document.body.dataset.page;
     setActiveNav(page);
     updateCartBadge();

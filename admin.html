@@ -35,6 +35,20 @@
           <a class="chip" data-nav="admin-settings" href="admin-settings.html">Cấu hình</a>
           <a class="chip" data-nav="admin-reports" href="admin-reports.html">Báo cáo</a>
         </nav>
+        <div class="admin-tools">
+          <label class="admin-search">
+            <input
+              id="adminGlobalSearch"
+              type="search"
+              placeholder="Tìm đơn / khách / sản phẩm"
+              autocomplete="off"
+            />
+            <button class="btn secondary small" id="adminSearchButton" type="button">Tìm</button>
+          </label>
+          <p class="helper admin-search-feedback" id="adminSearchFeedback">
+            Nhập mã đơn, tên khách hoặc sản phẩm để tìm nhanh.
+          </p>
+        </div>
         <div class="actions">
           <button class="btn ghost small" id="adminLogout" type="button">Đăng xuất</button>
         </div>
@@ -42,75 +56,54 @@
     </header>
 
     <main class="app-shell admin-shell">
-      <section class="section reveal admin-hero">
+      <section class="section reveal admin-hero in-view">
         <div class="section-header">
-          <h2>Trung tâm điều hành Order Hub</h2>
+          <h2>Trung tâm điều hành thông minh</h2>
           <div class="line"></div>
-          <p>Điều phối mọi luồng dữ liệu trong một góc nhìn gọn gàng, hiện đại và phản hồi khách hàng với tốc độ cao.</p>
         </div>
-        <div class="admin-hero-grid">
-          <article class="hero-card hero-stats">
-            <header class="hero-card-header">
-              <h3>Bảng số liệu trọng yếu</h3>
-              <p>Doanh thu, đơn hàng, khách mới và đầu việc quan trọng đều nằm trong tầm mắt.</p>
-            </header>
-            <div class="status-summary-grid" id="overviewStats"></div>
-            <div class="status-stacked-grid" id="statusStats"></div>
-            <div class="hero-cta">
-              <p class="helper">Điểm nhanh hành động.</p>
-              <div class="hero-actions hero-actions--dashboard">
-                <a class="btn ghost small" href="admin-orders.html">Đơn hàng</a>
-                <a class="btn ghost small" href="admin-payments.html">Thanh toán</a>
-                <a class="btn ghost small" href="admin-customers.html">Khách hàng</a>
-              </div>
-            </div>
-          </article>
-        </div>
-        <div class="admin-shortcuts-grid">
-          <a class="card admin-link" href="admin-products.html">
-            <h3>Sản phẩm</h3>
-            <p>Cập nhật kho và ưu tiên hàng mới.</p>
-          </a>
-          <a class="card admin-link" href="admin-orders.html">
-            <h3>Đơn hàng</h3>
-            <p>Theo dõi trạng thái và quy trình ship chặt chẽ.</p>
-          </a>
-          <a class="card admin-link" href="admin-quotes.html">
-            <h3>Báo giá</h3>
-            <p>Nhập phí ship và mở cổng khi chuẩn.</p>
-          </a>
-          <a class="card admin-link" href="admin-tracking.html">
-            <h3>Lộ trình</h3>
-            <p>Cập nhật hành trình và ETA tức thì.</p>
-          </a>
-          <a class="card admin-link" href="admin-settings.html">
-            <h3>Cấu hình</h3>
-            <p>Kiểm soát sync, quyền và tích hợp.</p>
-          </a>
-        </div>
-      </section>
-
-      <section class="section reveal admin-customers-section">
-        <div class="section-header">
-          <h2>Khách hàng mới & ưu tiên</h2>
-          <div class="line"></div>
-          <p>Tập trung vào khách hàng mới, mỗi hành động xoá là vĩnh viễn và được phản hồi ngay.</p>
-        </div>
-        <div class="admin-new-customers" id="adminNewCustomersList"></div>
-      </section>
-
-      <section class="section reveal admin-orders-section">
-        <div class="section-header">
-          <h2>Đơn hàng đang chờ duyệt</h2>
-          <div class="line"></div>
-          <div class="segment admin-order-actions">
-            <button class="btn ghost small" id="adminOrderRefresh" type="button">Làm mới</button>
-            <span class="helper">Đồng bộ đơn từ backend, kéo thẳng vào bảng.</span>
+        <article class="card admin-hero-compact">
+          <header class="admin-hero-header">
+            <h3>Chỉ số & thao tác</h3>
+            <p>Thông tin trọng yếu nằm gọn trong một block, dễ nhìn và dễ thao tác.</p>
+          </header>
+          <div class="admin-hero-compact-grid">
+            <div class="admin-hero-overview" id="overviewStats"></div>
+            <div class="admin-status-stack" id="statusStats"></div>
           </div>
-        </div>
-        <div class="grid-3" id="adminOrdersPanel"></div>
-        <p class="helper" id="adminOrderRefreshMeta">Đang tải dữ liệu...</p>
+          <div class="admin-dashboard-actions admin-dashboard-actions--stacked" aria-label="Tác vụ nhanh admin">
+            <button class="btn ghost small" type="button" data-admin-quick="orders">Đơn hàng</button>
+            <button class="btn ghost small" type="button" data-admin-quick="payments">Thanh toán</button>
+            <button class="btn ghost small" type="button" data-admin-quick="products">Sản phẩm</button>
+            <button class="btn ghost small" type="button" data-admin-quick="customers">Khách hàng</button>
+          </div>
+          <div class="admin-hero-meta">
+            <div>
+              <strong>Đơn mới 3 ngày</strong>
+              <span id="adminNewOrderCountLabel">Đang tải...</span>
+            </div>
+            <div>
+              <strong>Cổng thanh toán</strong>
+              <span id="adminPaymentGateState">Đang tải...</span>
+            </div>
+          </div>
+        </article>
+        <div class="admin-insight-grid" data-admin-insights></div>
       </section>
+
+      <section class="section reveal admin-workflow-section">
+        <div class="section-header">
+          <h2>Luồng tiến trình admin</h2>
+          <div class="line"></div>
+          <p>Quan sát trạng thái đơn, đối soát thanh toán và cập nhật ship trong cùng một bảng.</p>
+        </div>
+        <div class="admin-workflow-grid" id="adminWorkflowGrid"></div>
+        <div class="admin-workflow-actions">
+          <button class="btn secondary" id="adminWorkflowRefresh" type="button">Cập nhật tiến trình</button>
+          <a class="btn ghost" href="admin-orders.html">Xem chi tiết đơn hàng</a>
+          <a class="btn ghost" href="admin-settings.html">Đi tới cấu hình</a>
+        </div>
+      </section>
+
     </main>
   </body>
 </html>

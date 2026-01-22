@@ -37,17 +37,63 @@
       </div>
     </header>
 
-    <main class="app-shell">
-      <section class="section reveal payment-activity-section">
+    <main class="app-shell payment-shell">
+      <section class="section reveal payment-hero-panel">
+        <div class="section-header">
+          <h2>Thanh toán thông minh</h2>
+          <div class="line"></div>
+          <p>Gọn gàng, linh hoạt và chỉ giữ lại các thao tác cần thiết để xử lý đơn.</p>
+        </div>
+        <article class="card payment-hero-card payment-hero-card--compact">
+          <div class="payment-hero-primary">
+            <strong data-payment-hero-pending-count>0 đơn</strong>
+            <span class="helper small">Đơn chờ xử lý</span>
+            <p class="helper payment-hero-subvalue" data-payment-hero-pending-total>
+              JPY 0 · VND 0
+            </p>
+          </div>
+          <div class="payment-hero-quick">
+            <div>
+              <span>Đã xác nhận ship</span>
+              <strong data-payment-hero-shipping-count>0</strong>
+            </div>
+            <div>
+              <span>Đã thanh toán</span>
+              <strong data-payment-hero-paid-count>0</strong>
+            </div>
+            <div>
+              <span>Cổng thanh toán</span>
+              <strong
+                class="payment-hero-gate-state"
+                data-payment-hero-gate-state
+                data-gate-state="loading"
+              >
+                Đang tải...
+              </strong>
+            </div>
+          </div>
+          <div class="payment-hero-actions" aria-label="Tác vụ thanh toán">
+            <button class="btn ghost small" type="button" data-hero-action="focus" data-hero-target="pending">
+              Tập trung đơn chờ
+            </button>
+            <button
+              class="btn ghost small"
+              type="button"
+              data-hero-action="scroll"
+              data-hero-target=".payment-history-section"
+            >
+              Xem lịch sử
+            </button>
+          </div>
+        </article>
+      </section>
+      <section class="section reveal payment-activity-section compact">
         <div class="section-header">
           <h2>Hoạt động đặt hàng</h2>
           <div class="line"></div>
-          <span class="badge green">Nơi đầu tiên hiển thị đơn mới nhất</span>
+          <span class="badge green">Luồng thanh toán mới nhất</span>
         </div>
-        <p class="helper payment-activity-description">
-          Hoạt động chỉ cho phép thanh toán sau khi admin xác nhận phí ship và mở cổng, tập trung trong một màn hình nhỏ gọn.
-        </p>
-        <div id="paymentActivity"></div>
+        <div id="paymentActivity" class="payment-activity-grid"></div>
       </section>
     </main>
 

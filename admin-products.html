@@ -34,6 +34,26 @@
           <a class="chip" data-nav="admin-settings" href="admin-settings.html">Cấu hình</a>
           <a class="chip" data-nav="admin-reports" href="admin-reports.html">Báo cáo</a>
         </nav>
+        <div class="admin-tools">
+          <label class="admin-search">
+            <input
+              id="adminGlobalSearch"
+              type="search"
+              placeholder="Tìm đơn / khách / sản phẩm"
+              autocomplete="off"
+            />
+            <button class="btn secondary small" id="adminSearchButton" type="button">Tìm</button>
+          </label>
+          <p class="helper admin-search-feedback" id="adminSearchFeedback">
+            Nhập mã đơn, tên khách hoặc sản phẩm để tìm nhanh.
+          </p>
+          <div class="admin-quick-links" aria-label="Tác vụ nhanh">
+            <button class="btn ghost small" type="button" data-admin-quick="orders">Đơn hàng</button>
+            <button class="btn ghost small" type="button" data-admin-quick="payments">Thanh toán</button>
+            <button class="btn ghost small" type="button" data-admin-quick="products">Sản phẩm</button>
+            <button class="btn ghost small" type="button" data-admin-quick="customers">Khách hàng</button>
+          </div>
+        </div>
         <div class="actions">
           <button class="btn ghost small" id="adminLogout" type="button">Đăng xuất</button>
         </div>
@@ -46,6 +66,7 @@
           <h2>Quản lý sản phẩm</h2>
           <div class="line"></div>
         </div>
+        <div class="admin-insight-grid" data-admin-insights></div>
         <div class="grid-2">
           <div class="card admin-panel">
             <div class="form-grid">
