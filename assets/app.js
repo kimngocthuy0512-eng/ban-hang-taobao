@@ -31,6 +31,7 @@
   const KEYS = {
     settings: "oh_settings",
     products: "oh_products",
+    deletedProducts: "oh_deleted_products",
     cart: "oh_cart",
     orders: "oh_orders",
     customers: "oh_customers",
@@ -650,6 +651,7 @@
     meta: { updatedAt: new Date().toISOString() },
     settings: readStore(KEYS.settings, DEFAULT_SETTINGS),
     products: readStore(KEYS.products, DEFAULT_PRODUCTS),
+    deletedProducts: readStore(KEYS.deletedProducts, []),
     orders: readStore(KEYS.orders, []),
     customers: readStore(KEYS.customers, {}),
     cart: readStore(KEYS.cart, []),
@@ -850,7 +852,7 @@
     if (!container) return;
     const searchTerm =
       container.id === "customerList" ? getCustomerSearchTerm() : "";
-    const customers = Object.values(getCustomers());
+    const customers = getActiveCustomers();
     if (!customers.length) {
       container.innerHTML =
         '<div class="card soft"><p>Chưa có khách hàng được ghi nhận trên hệ thống.</p></div>';
@@ -874,7 +876,7 @@
       return;
     }
     const ordersList = getOrders();
-    const products = getProducts();
+    const products = getVisibleProducts();
     const settings = getSettings();
     const sorted = filtered
       .slice()
@@ -894,6 +896,16 @@
           return sum + (orderTotals[idx]?.totalVND || 0);
         }, 0);
         const outstanding = Math.max(0, totalAll - totalPaid);
+        const messengerLink = getMessengerLink(customer.fb);
+        const safeMessengerLink = messengerLink ? escapeHtml(messengerLink) : "";
+        const safeFbLabel = escapeHtml(customer.fb || "Facebook chưa cập nhật");
+        const messengerDisplay = safeMessengerLink
+          ? `<a href="${safeMessengerLink}" target="_blank" rel="noopener">${safeFbLabel}</a>`
+          : safeFbLabel;
+        const phoneLabel = escapeHtml(customer.phone || "Chưa có số điện thoại");
+        const phoneLink = customer.phone
+          ? `<a href="tel:${phoneLabel}">${phoneLabel}</a>`
+          : phoneLabel;
         const lastOrder =
           customerOrders
             .slice()
@@ -907,26 +919,63 @@
         const isFresh = index < 3;
         const badgeClass = isFresh ? "badge green" : "badge orange";
         const badgeLabel = isFresh ? "Ưu tiên" : "Đã ghi nhận";
+        const statusBadgeClass = lastOrder
+          ? lastOrder.status === STATUS.CANCELLED
+            ? "red"
+            : "orange"
+          : "";
+        const paymentBadgeClass = lastOrder
+          ? lastOrder.paymentStatus === PAYMENT_STATUS.CONFIRMED
+            ? "green"
+            : "red"
+          : "";
+        const orderStatusBadge = lastOrder
+          ? `<span class="badge ${statusBadgeClass}">${escapeHtml(
+              formatOrderStatus(lastOrder.status)
+            )}</span>`
+          : `<span class="badge">Chưa có đơn</span>`;
+        const paymentStatusBadge = lastOrder
+          ? `<span class="badge ${paymentBadgeClass}">${escapeHtml(
+              formatPaymentStatus(lastOrder.paymentStatus)
+            )}</span>`
+          : "";
+        const outstandingBadge = outstanding
+          ? `<span class="badge orange">Chưa TT ${formatNumber(outstanding)} ₫</span>`
+          : `<span class="badge green">Đã thanh toán</span>`;
         return `
           <article class="customer-card ${isFresh ? "customer-card--fresh" : ""}" data-customer-card data-code="${customer.code}">
             <div class="customer-card-head">
               <div>
                 <strong>${escapeHtml(customer.name || "Khách hàng")}</strong>
-                <span class="helper">${customer.phone || "Chưa có số điện thoại"}</span>
+                <span class="helper">${phoneLink}</span>
               </div>
               <div class="customer-card-head-meta">
                 <span class="helper">${createdLabel}</span>
                 <span class="${badgeClass}">${badgeLabel}</span>
               </div>
             </div>
-            <div class="customer-card-stats">
-              <span>Đơn: ${customerOrders.length}</span>
-              <span>Đã TT: ${formatNumber(totalPaid)} ₫</span>
-              <span>Chưa TT: ${formatNumber(outstanding)} ₫</span>
+            <div class="customer-card-finance">
+              <div>
+                <span class="label">Đơn hàng</span>
+                <strong>${customerOrders.length}</strong>
+              </div>
+              <div>
+                <span class="label">Đã thanh toán</span>
+                <strong>${formatNumber(totalPaid)} ₫</strong>
+              </div>
+              <div>
+                <span class="label">Chưa thanh toán</span>
+                <strong>${formatNumber(outstanding)} ₫</strong>
+              </div>
             </div>
             <div class="customer-card-meta">
-              <span>${escapeHtml(customer.fb || "Facebook chưa cập nhật")}</span>
-              <span class="helper">Mới nhất: ${lastOrderLabel}</span>
+              <span>FB: ${messengerDisplay}</span>
+              <span class="helper small">Mới nhất: ${lastOrderLabel}</span>
+            </div>
+            <div class="customer-card-badges">
+              ${orderStatusBadge}
+              ${paymentStatusBadge}
+              ${outstandingBadge}
             </div>
             <div class="customer-card-actions">
               <button class="btn ghost small" type="button" data-action="view-orders" data-code="${
@@ -953,7 +1002,7 @@
 
   const computeCustomerOrderStats = (customerCode) => {
     const orders = getOrders().filter((entry) => entry.customerCode === customerCode);
-    const products = getProducts();
+    const products = getVisibleProducts();
     const settings = getSettings();
     let totalPaid = 0;
     let outstanding = 0;
@@ -981,11 +1030,10 @@
         '<div class="customer-detail-placeholder"><p class="helper">Chọn khách hàng để xem chi tiết.</p></div>';
       return;
     }
-    const customers = getCustomers();
-    const customer = customers[customerCode];
+    const customer = findActiveCustomer(customerCode);
     if (!customer) {
       panel.innerHTML =
-        '<div class="customer-detail-placeholder"><p class="helper">Không tìm thấy khách hàng này.</p></div>';
+        '<div class="customer-detail-placeholder"><p class="helper">Khách hàng đã được xóa hoặc không tồn tại.</p></div>';
       return;
     }
     const stats = computeCustomerOrderStats(customerCode);
@@ -994,9 +1042,11 @@
     const safeName = escapeHtml(customer.name || "Khách hàng");
     const safePhone = escapeHtml(customer.phone || "Chưa có số điện thoại");
     const safeAddress = escapeHtml(customer.address || "Địa chỉ chưa cập nhật");
-    const recentOrders = stats.orders
+    const sortedOrders = stats.orders
       .slice()
-      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const latestOrder = sortedOrders[0] || null;
+    const recentOrders = sortedOrders
       .slice(0, 3)
       .map((order) => {
         const totals = computeTotals(order, productSettings, productList);
@@ -1012,13 +1062,53 @@
         `;
       })
       .join("");
+    const messengerLink = getMessengerLink(customer.fb);
+    const safeFbLabel = escapeHtml(customer.fb || "Chưa cập nhật");
+    const messengerMarkup = messengerLink
+      ? `<a href="${escapeHtml(messengerLink)}" target="_blank" rel="noopener">${safeFbLabel}</a>`
+      : safeFbLabel;
+    const phoneMarkup = customer.phone
+      ? `<a href="tel:${escapeHtml(customer.phone)}">${escapeHtml(customer.phone)}</a>`
+      : safePhone;
+    const statusBadgeClass = latestOrder
+      ? latestOrder.status === STATUS.CANCELLED
+        ? "red"
+        : "orange"
+      : "";
+    const paymentBadgeClass = latestOrder
+      ? latestOrder.paymentStatus === PAYMENT_STATUS.CONFIRMED
+        ? "green"
+        : "red"
+      : "";
+    const latestOrderBadge = latestOrder
+      ? `<span class="badge ${statusBadgeClass}">${escapeHtml(formatOrderStatus(latestOrder.status))}</span>`
+      : `<span class="badge">Chưa có đơn</span>`;
+    const latestPaymentBadge = latestOrder
+      ? `<span class="badge ${paymentBadgeClass}">${escapeHtml(
+          formatPaymentStatus(latestOrder.paymentStatus)
+        )}</span>`
+      : "";
+    const outstandingBadge = stats.outstanding
+      ? `<span class="badge orange">Còn nợ ${formatNumber(stats.outstanding)} ₫</span>`
+      : `<span class="badge green">Không nợ</span>`;
     panel.innerHTML = `
       <div class="customer-detail-card">
         <div class="customer-detail-head">
-          <h3>${safeName}</h3>
-          <span class="helper">${safePhone}</span>
-          <span class="helper small">${safeAddress}</span>
-          <span class="helper small">FB: ${escapeHtml(customer.fb || "Chưa cập nhật")}</span>
+          <div>
+            <h3>${safeName}</h3>
+            <span class="helper">${safePhone}</span>
+            <span class="helper small">${safeAddress}</span>
+            <span class="helper small">FB: ${escapeHtml(customer.fb || "Chưa cập nhật")}</span>
+          </div>
+          <div class="customer-detail-contact">
+            <span>SĐT: ${phoneMarkup}</span>
+            <span>Messenger: ${messengerMarkup}</span>
+          </div>
+        </div>
+        <div class="customer-detail-badges">
+          ${latestOrderBadge}
+          ${latestPaymentBadge}
+          ${outstandingBadge}
         </div>
         <div class="customer-detail-stats">
           <span>Đơn hàng: ${stats.count}</span>
@@ -1073,12 +1163,18 @@
   const removeCustomerByCode = (code) => {
     if (!code) return;
     const customers = getCustomers();
-    if (!customers[code]) return;
+    const customer = customers[code];
+    if (!customer) return;
+    const confirmMessage = customer.name
+      ? `Bạn có chắc muốn xoá khách hàng ${customer.name} vĩnh viễn?`
+      : `Bạn có chắc muốn xoá khách hàng ${code}?`;
+    if (!window.confirm(confirmMessage)) return;
+    const displayName = customer.name || code;
     delete customers[code];
     setCustomers(customers);
     renderAllCustomerSections();
     renderCustomerDetailPanel("");
-    showOrderNotice(`Đã xóa khách hàng ${code}.`);
+    showOrderNotice(`Đã xóa khách hàng ${displayName}.`);
   };
 
   const handleCustomerCardAction = (event) => {
@@ -1135,6 +1231,9 @@
     if (!snapshot || typeof snapshot !== "object") return false;
     if (snapshot.settings) writeStore(KEYS.settings, snapshot.settings);
     if (snapshot.products) writeStore(KEYS.products, snapshot.products);
+    if (Array.isArray(snapshot.deletedProducts)) {
+      writeStore(KEYS.deletedProducts, snapshot.deletedProducts);
+    }
     if (snapshot.orders) writeStore(KEYS.orders, snapshot.orders);
     if (snapshot.customers) writeStore(KEYS.customers, snapshot.customers);
     if (snapshot.cart) writeStore(KEYS.cart, snapshot.cart);
@@ -1164,16 +1263,39 @@
     if (!normalizedSettings.updatedAt) normalizedSettings.updatedAt = 0;
     writeStore(KEYS.settings, normalizedSettings);
     const existingProducts = readStore(KEYS.products, null);
-    if (!existingProducts || !Array.isArray(existingProducts) || !existingProducts.length) {
-      writeStore(KEYS.products, DEFAULT_PRODUCTS);
+    let deletedProductIds = getDeletedProductIds();
+    const legacyDeletedIds =
+      Array.isArray(existingProducts)
+        ? existingProducts
+            .filter((product) => product?.deletedAt && product.id)
+            .map((product) => product.id)
+        : [];
+    if (legacyDeletedIds.length) {
+      const nextDeletedIds = new Set(deletedProductIds);
+      legacyDeletedIds.forEach((id) => nextDeletedIds.add(id));
+      setDeletedProductIds(nextDeletedIds);
+      deletedProductIds = nextDeletedIds;
+    }
+    const filteredExisting = Array.isArray(existingProducts)
+      ? existingProducts.filter(
+          (product) => product && !product.deletedAt && !deletedProductIds.has(product.id)
+        )
+      : [];
+    if (!filteredExisting.length) {
+      const seededDefaults = DEFAULT_PRODUCTS.filter(
+        (item) => item.id && !deletedProductIds.has(item.id)
+      );
+      writeStore(KEYS.products, seededDefaults);
     } else {
       const defaultMap = new Map(DEFAULT_PRODUCTS.map((item) => [item.id, item]));
-      const merged = existingProducts.map((item) =>
+      const merged = filteredExisting.map((item) =>
         defaultMap.has(item.id) ? { ...defaultMap.get(item.id), ...item } : item
       );
-      const existingIds = new Set(existingProducts.map((item) => item.id));
+      const existingIds = new Set(merged.map((item) => item.id));
       DEFAULT_PRODUCTS.forEach((item) => {
-        if (!existingIds.has(item.id)) merged.push(item);
+        if (item.id && !existingIds.has(item.id) && !deletedProductIds.has(item.id)) {
+          merged.push(item);
+        }
       });
       writeStore(KEYS.products, merged);
     }
@@ -1203,6 +1325,38 @@
     normalizeSettings(readStore(KEYS.settings, DEFAULT_SETTINGS));
   const setSettings = (settings) =>
     writeStore(KEYS.settings, { ...normalizeSettings(settings), updatedAt: Date.now() });
+
+  const normalizeDeletedProductValues = (values) => {
+    let list = values;
+    if (list instanceof Set) list = Array.from(list);
+    if (!Array.isArray(list)) list = [];
+    return Array.from(new Set(list.filter(Boolean)));
+  };
+
+  const getDeletedProductIds = () =>
+    new Set(normalizeDeletedProductValues(readStore(KEYS.deletedProducts, [])));
+
+  const setDeletedProductIds = (values) => {
+    const normalized = normalizeDeletedProductValues(values);
+    writeStore(KEYS.deletedProducts, normalized);
+  };
+
+  const addDeletedProductId = (id) => {
+    if (!id) return;
+    const current = getDeletedProductIds();
+    current.add(id);
+    setDeletedProductIds(current);
+  };
+
+  const removeDeletedProductId = (id) => {
+    if (!id) return;
+    const current = getDeletedProductIds();
+    if (!current.has(id)) return;
+    current.delete(id);
+    setDeletedProductIds(current);
+  };
+
+  const isProductIdDeleted = (id) => Boolean(id && getDeletedProductIds().has(id));
 
   const getProducts = () => readStore(KEYS.products, DEFAULT_PRODUCTS);
   const setProducts = (products) => writeStore(KEYS.products, products);
@@ -1286,8 +1440,15 @@
     setProducts(products);
   };
 
-  const getVisibleProducts = () =>
-    getProducts().filter((product) => !product.hidden && !product.deletedAt);
+  const getVisibleProducts = () => {
+    const removedIds = getDeletedProductIds();
+    return getProducts().filter((product) => {
+      if (!product) return false;
+      if (product.hidden || product.deletedAt) return false;
+      if (!product.id) return true;
+      return !removedIds.has(product.id);
+    });
+  };
 
   const isPriorityProductEntry = (product) =>
     Boolean(product?.primary || product?.priority === "primary" || product?.flags?.includes?.("priority"));
@@ -1360,6 +1521,14 @@
     const code = getDeviceCustomerCode();
     const customers = getCustomers();
     return customers[code] || {};
+  };
+
+  const isCustomerActive = (customer) => Boolean(customer && !customer.deletedAt);
+  const getActiveCustomers = () => Object.values(getCustomers()).filter(isCustomerActive);
+  const findActiveCustomer = (code) => {
+    if (!code) return null;
+    const customer = getCustomers()[code];
+    return isCustomerActive(customer) ? customer : null;
   };
 
   const getCustomerOrders = () => {
@@ -1686,6 +1855,35 @@
       maximumFractionDigits: currency === "CNY" ? 2 : 0,
     }).format(value || 0);
 
+  const formatRatingText = (rating, ratingCount) => {
+    const parsedRating = typeof rating === "number" ? rating : Number(rating);
+    const ratingValue = Number.isFinite(parsedRating) && parsedRating > 0 ? parsedRating : null;
+    const parsedCount = typeof ratingCount === "number" ? ratingCount : Number(ratingCount);
+    const countValue = Number.isFinite(parsedCount) && parsedCount > 0 ? parsedCount : null;
+    if (!ratingValue && !countValue) {
+      return "Chưa có đánh giá";
+    }
+    if (ratingValue) {
+      const normalized = Math.round(ratingValue * 10) / 10;
+      const formattedRating =
+        Number.isInteger(normalized) ? normalized.toFixed(0) : normalized.toFixed(1);
+      let text = `★ ${formattedRating} sao`;
+      if (countValue) {
+        text += ` · ${formatNumber(countValue)} lượt đánh giá`;
+      }
+      return text;
+    }
+    return `${formatNumber(countValue)} lượt đánh giá`;
+  };
+
+  const formatPositiveRate = (value) => {
+    const parsed = typeof value === "number" ? value : Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return "";
+    const normalized = parsed > 1 ? parsed / 100 : parsed;
+    const percent = Math.round(normalized * 100);
+    return `${percent}%`;
+  };
+
   const PRICE_FEE_RATE = 0.25;
   const applyProductFee = (base) => {
     const value = Number(base) || 0;
@@ -1698,6 +1896,13 @@
       jpy: Math.round(priced * settings.rateJPY),
       vnd: Math.round(priced * settings.rateVND),
     };
+  };
+
+  const CATEGORY_LABELS = {
+    outerwear: "Outerwear & Áo khoác",
+    sneakers: "Sneakers",
+    bags: "Túi xách",
+    lifestyle: "Lifestyle",
   };
 
   const sourceLabel = (source) => {
@@ -3564,7 +3769,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     let viewMode = store.getItem(KEYS.viewMode) || "grid";
     if (grid) {
       grid.innerHTML = '<div class="card empty-state">Đang tải sản phẩm từ server...</div>';
-      const teaserProducts = getProducts().slice(0, PRODUCTS_PER_PAGE);
+      const teaserProducts = getVisibleProducts().slice(0, PRODUCTS_PER_PAGE);
       if (teaserProducts.length) {
         renderProductGrid(teaserProducts, grid, viewMode);
       }
@@ -3746,7 +3951,11 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       metadataStatus.classList.remove("success", "error");
       metadataStatus.textContent = "Đang cập nhật bộ lọc...";
     }
-    const metadata = await fetchShopMetadata();
+    const metadataPromise = fetchShopMetadata();
+
+    setViewMode(viewMode);
+
+    const metadata = await metadataPromise;
     const combinedMetadata = {
       ...SHOP_METADATA_DEFAULT,
       ...(metadata || {}),
@@ -3759,7 +3968,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         : "Không thể tải bộ lọc từ backend. Đang dùng giá trị mặc định.";
     }
 
-    setViewMode(viewMode);
+    applyFilters();
   };
 
   const renderSizeButtons = (sizes, stock) => {
@@ -3774,7 +3983,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
   const initProduct = () => {
     const params = new URLSearchParams(window.location.search);
-    const products = getProducts();
+    const products = getVisibleProducts();
     const settings = getSettings();
     const productId = params.get("id") || products[0]?.id;
     const product = products.find((item) => item.id === productId) || products[0];
@@ -3800,8 +4009,102 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const stickyAdd = document.getElementById("stickyAdd");
     const stickyBuyNow = document.getElementById("stickyBuyNow");
     const productImageSkeleton = document.getElementById("productImageSkeleton");
+    const productInfoCard = document.getElementById("productInfoCard");
+    const productCodeInfo = document.getElementById("productCodeInfo");
+    const productCategoryInfo = document.getElementById("productCategoryInfo");
+    const productSourceInfo = document.getElementById("productSourceInfo");
+    const productSizeInfo = document.getElementById("productSizeInfo");
+    const productStockInfo = document.getElementById("productStockInfo");
+    const productRatingInfo = document.getElementById("productRatingInfo");
+    const productPositiveRateInfo = document.getElementById("productPositiveRateInfo");
+    const productSoldInfo = document.getElementById("productSoldInfo");
+    const productInfoTags = document.getElementById("productInfoTags");
+    const productColorInfo = document.getElementById("productColorInfo");
+    const productSourceLink = document.getElementById("productSourceLink");
 
-    if (!product || product.hidden || product.deletedAt) {
+    const renderProductInfoTags = (tags) => {
+      if (!productInfoTags) return;
+      const list = Array.isArray(tags) ? tags.filter(Boolean) : [];
+      if (!list.length) {
+        productInfoTags.innerHTML = '<span class="helper small">Chưa có tag.</span>';
+        return;
+      }
+      productInfoTags.innerHTML = list
+        .map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`)
+        .join("");
+    };
+
+    const resetProductInfo = () => {
+      if (productInfoCard) productInfoCard.classList.add("hidden");
+      if (productCodeInfo) productCodeInfo.textContent = "-";
+      if (productCategoryInfo) productCategoryInfo.textContent = "Chưa phân loại";
+      if (productSourceInfo) productSourceInfo.textContent = "-";
+      if (productSizeInfo) productSizeInfo.textContent = "Chưa có size";
+      if (productStockInfo) productStockInfo.textContent = "Chưa có dữ liệu";
+      if (productRatingInfo) productRatingInfo.textContent = "Chưa có đánh giá";
+      if (productPositiveRateInfo) productPositiveRateInfo.textContent = "Chưa có tỷ lệ";
+      if (productSoldInfo) productSoldInfo.textContent = "Chưa có số liệu";
+      if (productColorInfo) productColorInfo.textContent = "Chưa có màu";
+      renderProductInfoTags([]);
+      if (productSourceLink) {
+        productSourceLink.href = "#";
+        productSourceLink.textContent = "Chưa có link";
+        productSourceLink.classList.add("muted");
+      }
+    };
+
+    const updateProductInfo = () => {
+      if (!productInfoCard) return;
+      productInfoCard.classList.remove("hidden");
+      if (productCodeInfo) productCodeInfo.textContent = product.id || "-";
+      if (productCategoryInfo) {
+        const label = CATEGORY_LABELS[product.category] || product.category || "Chưa phân loại";
+        productCategoryInfo.textContent = label;
+      }
+      if (productSourceInfo) productSourceInfo.textContent = sourceLabel(product.source);
+      const sizes = getProductSizeList(product);
+      if (productSizeInfo) {
+        productSizeInfo.textContent = sizes.length ? sizes.join(", ") : "Chưa có size";
+      }
+      const stocks = getProductStockValues(product);
+      const totalStock = stocks.reduce((sum, value) => sum + Number(value || 0), 0);
+      if (productStockInfo) {
+        productStockInfo.textContent = totalStock
+          ? `${formatNumber(totalStock)} sản phẩm`
+          : "Chưa có dữ liệu";
+      }
+      if (productRatingInfo) {
+        productRatingInfo.textContent = formatRatingText(product.rating, product.ratingCount);
+      }
+      if (productPositiveRateInfo) {
+        const positiveText = formatPositiveRate(product.positiveRate);
+        productPositiveRateInfo.textContent = positiveText
+          ? `${positiveText} đánh giá tích cực`
+          : "Chưa có tỷ lệ";
+      }
+      if (productSoldInfo) {
+        productSoldInfo.textContent = product.soldCount
+          ? `${formatNumber(product.soldCount)} lượt bán`
+          : "Chưa có số liệu";
+      }
+      if (productColorInfo) productColorInfo.textContent = product.defaultColor || "Chưa có màu";
+      renderProductInfoTags(product.tags);
+      if (productSourceLink) {
+        const sourceUrl = product.sourceUrl || product.link || "";
+        if (sourceUrl) {
+          productSourceLink.href = sourceUrl;
+          productSourceLink.textContent = "Xem link gốc";
+          productSourceLink.classList.remove("muted");
+        } else {
+          productSourceLink.href = "#";
+          productSourceLink.textContent = "Chưa có link";
+          productSourceLink.classList.add("muted");
+        }
+      }
+    };
+
+    if (!product || product.hidden || product.deletedAt || isProductIdDeleted(product.id)) {
+      resetProductInfo();
       if (productMain) productMain.innerHTML = "";
       if (productThumbs) productThumbs.innerHTML = "";
       if (productTags) productTags.innerHTML = "";
@@ -4023,6 +4326,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     if (stickyAdd) stickyAdd.addEventListener("click", handleAdd);
     if (stickyBuyNow) stickyBuyNow.addEventListener("click", handleBuy);
 
+    updateProductInfo();
     if (relatedGrid) {
       const related = getVisibleProducts()
         .filter((item) => item.id !== product.id && item.category === product.category)
@@ -5114,7 +5418,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       return sum + (totals.totalVND || 0);
     }, 0);
     const paidOrders = orders.filter((order) => order.paymentStatus === PAYMENT_STATUS.CONFIRMED);
-    const customers = Object.values(getCustomers());
+    const customers = getActiveCustomers();
     const newCustomerWindow = 7 * 24 * 60 * 60 * 1000;
     const newCustomerCount = customers.filter(
       (customer) => (Date.now() - (customer.createdAt || 0)) <= newCustomerWindow
@@ -5220,6 +5524,26 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     return stocks;
   };
 
+  const getProductSizeList = (product) => {
+    if (!product) return [];
+    const sizes = new Set();
+    const pushSize = (value) => {
+      const text = String(value || "").trim();
+      if (!text) return;
+      sizes.add(text);
+    };
+    (product.sizesText || []).forEach(pushSize);
+    (product.sizesNum || []).forEach(pushSize);
+    if (Array.isArray(product.variants)) {
+      product.variants.forEach((variant) => {
+        pushSize(variant.size || variant.name || variant.label || variant.value);
+      });
+    }
+    if (product.defaultSize) pushSize(product.defaultSize);
+    if (!sizes.size && product.size) pushSize(product.size);
+    return Array.from(sizes);
+  };
+
   const isProductLowStock = (product) => {
     const stocks = getProductStockValues(product);
     if (!stocks.length) return false;
@@ -5229,7 +5553,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
   const buildAdminInsightCards = (page) => {
     const orders = getOrders();
     const products = getProducts();
-    const customers = Object.values(getCustomers());
+    const customers = getActiveCustomers();
     const settings = getSettings();
     const now = Date.now();
     const pendingStatuses = [
@@ -5586,7 +5910,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const normalized = input.toLowerCase();
     const orders = getOrders();
     const products = getProducts();
-    const customers = Object.values(getCustomers());
+    const customers = getActiveCustomers();
     const order = findOrderMatch(normalized, orders);
     if (order) {
       const code = order.code || order.paymentCode || "";
@@ -6451,6 +6775,22 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const addProduct = document.getElementById("addProduct");
     const updateProduct = document.getElementById("updateProduct");
     const resetProduct = document.getElementById("resetProduct");
+    const productDefaultStock = document.getElementById("productDefaultStock");
+    const paletteInput = document.getElementById("productPaletteInput");
+    const paletteAdd = document.getElementById("productPaletteAdd");
+    const paletteChips = document.getElementById("productPaletteChips");
+    const importPreviewName = document.querySelector("[data-import-name]");
+    const importPreviewPrice = document.querySelector("[data-import-price]");
+    const importPreviewSizes = document.querySelector("[data-import-sizes]");
+    const importPreviewColors = document.querySelector("[data-import-colors]");
+    const importPreviewImages = document.getElementById("importPreviewImages");
+    const importPreviewNote = document.getElementById("importPreviewNote");
+    const importPreviewSource = document.getElementById("importPreviewSource");
+    const importPreviewSourceLink = document.getElementById("importPreviewSourceLink");
+    const importPreviewColorChips = document.getElementById("importPreviewColorChips");
+    const importPreviewQualityTag = document.getElementById("importPreviewQualityTag");
+    const importPreviewRatingTag = document.getElementById("importPreviewRatingTag");
+    const importPreviewDesc = document.getElementById("importPreviewDesc");
 
     const quickEntryInputs = [
       productName,
@@ -6485,6 +6825,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     let bulkQueueSizes = new Map();
     let bulkQueueDescs = new Map();
     let importedMeta = null;
+    const DEFAULT_PALETTE = ["#2a2f45", "#374766", "#ffb347"];
+    let selectedPalette = [...DEFAULT_PALETTE];
 
     const parseImageList = (value) =>
       String(value || "")
@@ -6518,6 +6860,243 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       productImagePreview.innerHTML = `<div class="image-stack">${thumbs}${count}</div>`;
     };
 
+    const sanitizePaletteValue = (value) => cleanText(value || "");
+
+    const renderPaletteChips = () => {
+      if (!paletteChips) return;
+      if (!selectedPalette.length) {
+        paletteChips.innerHTML = "<span class=\"helper small\">Chưa chọn màu mở rộng</span>";
+        return;
+      }
+      paletteChips.innerHTML = selectedPalette
+        .map(
+          (color) => `
+          <span class="color-chip">
+            <span class="color-chip-swatch" style="background:${color}"></span>
+            ${escapeHtml(color)}
+            <button
+              type="button"
+              class="remove-color"
+              data-color="${escapeHtml(color)}"
+              aria-label="Xóa ${escapeHtml(color)}"
+            >&times;</button>
+          </span>
+        `
+        )
+        .join("");
+    };
+
+    const setPalette = (values) => {
+      const list = (Array.isArray(values) ? values : [])
+        .map((value) => sanitizePaletteValue(value))
+        .filter(Boolean);
+      selectedPalette = list.length ? list : [...DEFAULT_PALETTE];
+      if (selectedPalette.length > 8) {
+        selectedPalette = selectedPalette.slice(0, 8);
+      }
+      renderPaletteChips();
+    };
+
+    const addPaletteColorValue = (value) => {
+      const cleaned = sanitizePaletteValue(value);
+      if (!cleaned) return false;
+      const exists = selectedPalette.some(
+        (entry) => entry.toLowerCase() === cleaned.toLowerCase()
+      );
+      if (exists) return false;
+      selectedPalette = [...selectedPalette, cleaned].slice(0, 8);
+      renderPaletteChips();
+      return true;
+    };
+
+    const getProductPalette = () => (selectedPalette.length ? selectedPalette : [...DEFAULT_PALETTE]);
+
+    const getDefaultStockValue = () => {
+      const raw = Number(productDefaultStock?.value);
+      if (Number.isNaN(raw) || raw < 0) return 3;
+      return Math.max(0, Math.round(raw));
+    };
+
+    const formatPreviewPrice = (value) => {
+      const parsed = Number(value);
+      if (Number.isNaN(parsed) || parsed <= 0) return "Chưa có giá";
+      const settings = getSettings();
+      const baseWithFee = applyProductFee(parsed);
+      const converted = convertPrice(parsed, settings);
+      return `${formatCurrency(baseWithFee, settings.baseCurrency)} · JPY ${formatNumber(
+        converted.jpy
+      )} · VND ${formatNumber(converted.vnd)}`;
+    };
+
+    const renderImportPreviewColorChips = (colors) => {
+      if (!importPreviewColorChips) return;
+      const normalized = (Array.isArray(colors) ? colors : [])
+        .map((value) => sanitizePaletteValue(value))
+        .filter(Boolean);
+      if (!normalized.length) {
+        importPreviewColorChips.innerHTML =
+          '<span class="helper small">Chưa có màu sắc gợi ý.</span>';
+        return;
+      }
+      importPreviewColorChips.innerHTML = normalized
+        .map(
+          (color) => `
+            <span class="color-chip-preview">
+              <span class="color-chip-swatch" style="background:${color}"></span>
+              ${escapeHtml(color)}
+            </span>
+          `
+        )
+        .join("");
+    };
+
+    const buildDescriptionPreview = (value) => {
+      const cleaned = cleanText(value);
+      if (!cleaned) {
+        return { snippet: "Chưa có mô tả từ link.", full: "" };
+      }
+      const limit = 160;
+      const snippet = cleaned.length > limit ? `${cleaned.slice(0, limit).trim()}…` : cleaned;
+      return { snippet, full: cleaned };
+    };
+
+    const renderImportPreview = (payload, note = "") => {
+      if (!payload) {
+        clearImportPreview();
+        return;
+      }
+      const nameText = payload.name || "Chưa có dữ liệu";
+      const priceText = payload.price ? formatPreviewPrice(payload.price) : "Chưa có giá";
+      const sizeText =
+        Array.isArray(payload.sizes) && payload.sizes.length
+          ? payload.sizes.join(", ")
+          : "Chưa có";
+      const colorList = Array.isArray(payload.colors)
+        ? payload.colors
+            .map((color) => (typeof color === "string" ? color : color?.name || color?.text || ""))
+            .filter(Boolean)
+        : [];
+      const colorText = colorList.length ? colorList.join(", ") : "Chưa có";
+      const normalizedSource = ensureUrl(payload.sourceUrl || "");
+      const quality = evaluateQuality(payload);
+      const sourceText = sourceLabel(payload.source || "web");
+
+      if (importPreviewName) importPreviewName.textContent = nameText;
+      if (importPreviewPrice) importPreviewPrice.textContent = priceText;
+      if (importPreviewSizes) importPreviewSizes.textContent = sizeText;
+      if (importPreviewColors) importPreviewColors.textContent = colorText;
+      if (importPreviewImages) {
+        const images = Array.isArray(payload.images) ? payload.images.slice(0, 4) : [];
+        importPreviewImages.innerHTML = images.length
+          ? images
+              .map((src) => `<img src="${src}" alt="" loading="lazy" />`)
+              .join("")
+          : '<span class="helper small">Không có ảnh</span>';
+      }
+      if (importPreviewSource) {
+        importPreviewSource.textContent = `Nguồn: ${sourceText}`;
+      }
+      if (importPreviewSourceLink) {
+        if (normalizedSource) {
+          importPreviewSourceLink.href = normalizedSource;
+          importPreviewSourceLink.textContent = "Xem link gốc";
+          importPreviewSourceLink.classList.remove("muted");
+        } else {
+          importPreviewSourceLink.href = "#";
+          importPreviewSourceLink.textContent = "Chưa có link";
+          importPreviewSourceLink.classList.add("muted");
+        }
+      }
+      if (importPreviewQualityTag) {
+        const reason = quality.passed
+          ? "Chất lượng dữ liệu ổn định"
+          : quality.reasons[0] || "Thiếu dữ liệu đánh giá";
+        importPreviewQualityTag.textContent = reason;
+        importPreviewQualityTag.className = `tag ${quality.passed ? "primary" : "warning"}`;
+      }
+      if (importPreviewRatingTag) {
+        importPreviewRatingTag.textContent = formatRatingText(
+          payload.rating,
+          payload.ratingCount
+        );
+      }
+      if (importPreviewDesc) {
+        const descPreview = buildDescriptionPreview(payload.desc);
+        importPreviewDesc.textContent = descPreview.snippet;
+        importPreviewDesc.title = descPreview.full;
+      }
+      renderImportPreviewColorChips(colorList);
+      if (importPreviewNote) {
+        importPreviewNote.textContent =
+          note?.trim() || "Kết quả sẽ hiển thị sau khi import dữ liệu.";
+      }
+    };
+
+    const clearImportPreview = () => {
+      if (importPreviewName) importPreviewName.textContent = "Chưa có dữ liệu";
+      if (importPreviewPrice) importPreviewPrice.textContent = "0";
+      if (importPreviewSizes) importPreviewSizes.textContent = "Chưa có";
+      if (importPreviewColors) importPreviewColors.textContent = "Chưa có";
+      if (importPreviewImages) {
+        importPreviewImages.innerHTML = '<span class="helper small">Chưa có ảnh</span>';
+      }
+      if (importPreviewSource)
+        importPreviewSource.textContent = "Nguồn: Chưa có";
+      if (importPreviewSourceLink) {
+        importPreviewSourceLink.href = "#";
+        importPreviewSourceLink.textContent = "Chưa có link";
+        importPreviewSourceLink.classList.remove("muted");
+      }
+      if (importPreviewQualityTag) {
+        importPreviewQualityTag.textContent = "Chưa có đánh giá";
+        importPreviewQualityTag.className = "tag";
+      }
+      if (importPreviewRatingTag) {
+        importPreviewRatingTag.textContent = "Chưa có đánh giá";
+      }
+      if (importPreviewDesc) {
+        importPreviewDesc.textContent = "Chưa có mô tả từ link.";
+        importPreviewDesc.title = "";
+      }
+      renderImportPreviewColorChips([]);
+      if (importPreviewNote) {
+        importPreviewNote.textContent = "Kết quả sẽ hiển thị sau khi import.";
+      }
+    };
+
+    if (paletteAdd) {
+      paletteAdd.addEventListener("click", () => {
+        if (addPaletteColorValue(paletteInput?.value || "")) {
+          if (paletteInput) paletteInput.value = "";
+        }
+      });
+    }
+    if (paletteInput) {
+      paletteInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          if (addPaletteColorValue(paletteInput.value)) {
+            paletteInput.value = "";
+          }
+        }
+      });
+    }
+    if (paletteChips) {
+      paletteChips.addEventListener("click", (event) => {
+        const target = event.target.closest(".remove-color");
+        if (!target) return;
+        const color = target.dataset.color;
+        if (!color) return;
+        selectedPalette = selectedPalette.filter(
+          (entry) => entry.toLowerCase() !== color.toLowerCase()
+        );
+        if (!selectedPalette.length) {
+          selectedPalette = [...DEFAULT_PALETTE];
+        }
+        renderPaletteChips();
+      });
+    }
+    renderPaletteChips();
     const setAutoHint = (message) => {
       if (!autoImportHint) return;
       autoImportHint.textContent = message;
@@ -6639,6 +7218,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       const prices = [];
       const images = [];
       const sizes = new Set();
+      const colors = new Set();
       const ratings = [];
       const ratingCounts = [];
       const positiveRates = [];
@@ -6654,6 +7234,11 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         const text = cleanText(value);
         if (!text) return;
         if (/^https?:\/\//i.test(text) || text.startsWith("//")) images.push(text);
+      };
+      const pushColor = (value) => {
+        const text = cleanText(value);
+        if (!text) return;
+        colors.add(text);
       };
       const pushRating = (value) => {
         const parsed = parseNumberFromText(value);
@@ -6688,6 +7273,14 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           }
           if (/desc|description|subtitle|subTitle/i.test(keyText)) {
             if (typeof value === "string") pushString(descs, value, 300);
+          }
+          if (/color|colour|màu|颜色|kleur|farbe/i.test(keyText)) {
+            if (typeof value === "string") pushColor(value);
+            if (Array.isArray(value)) {
+              value.forEach((item) => {
+                if (typeof item === "string") pushColor(item);
+              });
+            }
           }
           if (/price|itemPrice|minPrice|maxPrice|priceText/i.test(keyText)) {
             if (typeof value === "string" || typeof value === "number") {
@@ -6752,6 +7345,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         price,
         images,
         sizes: Array.from(sizes).filter(Boolean),
+        colors: Array.from(colors).filter(Boolean),
         rating,
         ratingCount,
         positiveRate,
@@ -6849,6 +7443,49 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         scanOptions(container);
       });
       return Array.from(sizes);
+    };
+
+    const parseColorValues = (doc) => {
+      if (!doc) return [];
+      const colors = new Set();
+      const pushColor = (value) => {
+        const label = cleanText(value);
+        if (!label || label.length > 24) return;
+        colors.add(label);
+      };
+
+      const scanNode = (node) => {
+        if (!node) return;
+        const value =
+          node.getAttribute("data-value") ||
+          node.getAttribute("title") ||
+          node.textContent ||
+          "";
+        pushColor(value);
+        node.querySelectorAll("[data-value], [title], span, button").forEach((child) => {
+          if (child === node) return;
+          const text =
+            child.getAttribute("data-value") ||
+            child.getAttribute("title") ||
+            child.textContent ||
+            "";
+          pushColor(text);
+        });
+      };
+
+      doc
+        .querySelectorAll("[data-property]")
+        .forEach((node) => {
+          const prop = (node.getAttribute("data-property") || "").toLowerCase();
+          if (!/color|colour|màu|颜色|kleur|farbe/i.test(prop)) return;
+          scanNode(node);
+        });
+      doc
+        .querySelectorAll(
+          ".sku-color, .tb-sku, .sku-prop, .prop-color, .J_Prop, .tb-color, .J_Color, .tb-sku a"
+        )
+        .forEach((node) => scanNode(node));
+      return Array.from(colors);
     };
 
     const parseJsonLdProduct = (doc) => {
@@ -7592,7 +8229,14 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
     const extractFromHtml = (html, sourceUrl, blocked = false) => {
       const raw = String(html || "").trim();
-      let jsonExtract = { name: "", desc: "", price: null, images: [], sizes: [] };
+      let jsonExtract = {
+        name: "",
+        desc: "",
+        price: null,
+        images: [],
+        sizes: [],
+        colors: [],
+      };
       if (raw.startsWith("{") || raw.startsWith("[")) {
         try {
           const parsed = JSON.parse(raw);
@@ -7709,6 +8353,13 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         .map((value) => parseInt(value, 10))
         .filter((value) => !Number.isNaN(value) && value > 0);
       const soldCount = soldCountCandidates.length ? Math.max(...soldCountCandidates) : null;
+      const colors = Array.from(
+        new Set([
+          ...(jsonExtract.colors || []),
+          ...parseColorValues(doc),
+          ...(scriptData.colors || []),
+        ])
+      );
       const cleanTitle = cleanText(titleRaw).replace(/\s*-\s*(Taobao|Tmall).*/i, "");
       const safeTitle = isBlocked && isBlockedText(cleanTitle) ? "" : cleanTitle;
       const cleanDesc = cleanText(descRaw);
@@ -7725,11 +8376,112 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         price,
         sizes,
         images,
+        colors,
         rating,
         ratingCount,
         positiveRate,
         soldCount,
       };
+    };
+
+    const extractRawHintValue = (raw, regexes) => {
+      if (!raw) return "";
+      const text = decodeHtmlEntities(decodeEscapedText(String(raw)));
+      for (const regex of regexes) {
+        const match = regex.exec(text);
+        if (!match) continue;
+        for (let index = 1; index < match.length; index += 1) {
+          const candidate = cleanText(match[index]);
+          if (candidate) return candidate;
+        }
+      }
+      return "";
+    };
+
+    const extractRawHintNumber = (raw, regexes, parser = parseNumberFromText) => {
+      if (!raw) return null;
+      const text = decodeHtmlEntities(decodeEscapedText(String(raw)));
+      for (const regex of regexes) {
+        const match = regex.exec(text);
+        if (!match) continue;
+        for (let index = 1; index < match.length; index += 1) {
+          const candidate = parser(match[index]);
+          if (candidate) return candidate;
+        }
+      }
+      return null;
+    };
+
+    const extractRawColorHints = (raw) => {
+      if (!raw) return [];
+      const text = decodeHtmlEntities(decodeEscapedText(String(raw)));
+      const matches = [];
+      const regexes = [
+        /["'](?:color|colour|colorName|colorway)["']\s*:\s*["']([^"']{1,80})["']/gi,
+        /<span[^>]+class=["'][^"']*color[^"']*["'][^>]*>([^<]+)<\/span>/gi,
+        /<div[^>]+class=["'][^"']*color[^"']*["'][^>]*>([^<]+)<\/div>/gi,
+        /"màu"\s*:\s*["']([^"']{1,80})["']/gi,
+        /"colorList"\s*:\s*\[([^\]]+)\]/gi,
+      ];
+      regexes.forEach((regex) => {
+        for (const match of text.matchAll(regex)) {
+          const value = match[1] || match[2] || "";
+          const cleaned = cleanText(value);
+          if (cleaned) matches.push(cleaned);
+        }
+      });
+      return Array.from(new Set(matches));
+    };
+
+    const enhanceExtractedDataWithRawHints = (raw, extracted) => {
+      if (!raw || !extracted) return extracted;
+      if (!extracted.desc) {
+        const desc = extractRawHintValue(raw, [
+          /"description"\s*:\s*"([^"]+)"/i,
+          /"desc"\s*:\s*"([^"]+)"/i,
+          /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i,
+          /<p[^>]+class=["'][^"']*(desc|description)[^"']*["'][^>]*>([^<]+)/i,
+        ]);
+        if (desc) extracted.desc = desc;
+      }
+      if (!extracted.colors?.length) {
+        const colorHints = extractRawColorHints(raw);
+        if (colorHints.length) extracted.colors = colorHints;
+      }
+      if (!extracted.rating) {
+        const rating = extractRawHintNumber(raw, [
+          /"ratingValue"\s*:\s*"([0-9.]+)"/i,
+          /"rating"\s*:\s*"([0-9.]+)"/i,
+          /"avgStar"\s*:\s*"([0-9.]+)"/i,
+          /"rateScore"\s*:\s*"([0-9.]+)"/i,
+        ]);
+        if (rating) extracted.rating = rating;
+      }
+      if (!extracted.ratingCount) {
+        const count = extractRawHintNumber(
+          raw,
+          [
+            /"reviewCount"\s*:\s*"?(\\d+)"/i,
+            /"ratingCount"\s*:\s*"?(\\d+)"/i,
+            /"commentCount"\s*:\s*"?(\\d+)"/i,
+            /"totalComments"\s*:\s*"?(\\d+)"/i,
+          ],
+          (value) => {
+            const parsed = Number(String(value).replace(/[^0-9]/g, ""));
+            return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+          }
+        );
+        if (count) extracted.ratingCount = count;
+      }
+      if (!extracted.positiveRate) {
+        const positive = extractRawHintNumber(raw, [
+          /"goodRatePercent"\s*:\s*"([0-9.]+)"/i,
+          /"goodRate"\s*:\s*"([0-9.]+)"/i,
+          /"positiveRate"\s*:\s*"([0-9.]+)"/i,
+        ]);
+        if (positive) extracted.positiveRate = positive;
+      }
+      return extracted;
     };
 
     const fetchProductHtml = async (url) => {
@@ -7796,9 +8548,12 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       if (productImages) productImages.value = "";
       if (productColor) productColor.value = "";
       if (productDefaultSize) productDefaultSize.value = "";
+      if (productDefaultStock) productDefaultStock.value = "3";
       if (productHidden) productHidden.checked = false;
       renderImagePreview("");
       setAutoHint("Nhập link và bấm thử lấy dữ liệu.");
+      setPalette(DEFAULT_PALETTE);
+      clearImportPreview();
       if (productName) {
         productName.focus();
         productName.select();
@@ -7829,6 +8584,21 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       renderImagePreview(productImage ? productImage.value.trim() : "");
       if (productColor) productColor.value = product.defaultColor || "";
       if (productDefaultSize) productDefaultSize.value = product.defaultSize || "";
+      const storedDefaultStock = product.defaultStock ?? getDefaultStockValue();
+      if (productDefaultStock) productDefaultStock.value = storedDefaultStock;
+      setPalette(product.palette || DEFAULT_PALETTE);
+      renderImportPreview(
+        {
+          name: product.name,
+          price: product.basePrice,
+          sizes: Array.from(
+            new Set([...(product.sizesText || []), ...(product.sizesNum || [])])
+          ),
+          colors: product.palette || [],
+          images: product.images || [],
+        },
+        "Đang hiển thị dữ liệu sản phẩm"
+      );
     };
 
     const parseSizes = () =>
@@ -7941,7 +8711,17 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       if (!productSizes.value) missing.push("size");
       const missingText = missing.length ? ` Thiếu: ${missing.join(", ")}.` : "";
       const baseText = fields.length ? `Đã lấy: ${fields.join(", ")}.` : "Chưa lấy được dữ liệu.";
-      setAutoHint(`${note}${baseText}${missingText}`.trim());
+      const previewNote = `${note}${baseText}${missingText}`.trim();
+      setAutoHint(previewNote);
+      const colorHints = (Array.isArray(extracted.colors) ? extracted.colors : [])
+        .map((item) =>
+          typeof item === "string" ? item : item?.name || item?.text || item?.value || ""
+        )
+        .filter(Boolean);
+      if (colorHints.length) {
+        setPalette(colorHints.slice(0, 8));
+      }
+      renderImportPreview(extracted, previewNote);
       return { fields, missing };
     };
 
@@ -7958,7 +8738,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
     const getFilteredProducts = () => {
       const query = productSearch.value.trim().toLowerCase();
-      let items = getProducts().filter((product) => !product.deletedAt);
+      let items = getVisibleProducts();
       if (query) {
         items = items.filter((product) => {
           const tagsText = (product.tags || []).join(" ").toLowerCase();
@@ -7995,8 +8775,19 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           const images = getProductImages(product);
           const thumb = images[0];
           const fallback = (product.name || "SP").slice(0, 2).toUpperCase();
-          const tags = (product.tags || []).slice(0, 2).map((tag) => `<span class=\"tag\">${tag}</span>`).join("");
+          const tags = (product.tags || []).slice(0, 2).map((tag) => `<span class="tag">${tag}</span>`).join("");
           const priced = applyProductFee(product.basePrice);
+          const stockValues = getProductStockValues(product);
+          const minStock = stockValues.length ? Math.min(...stockValues) : null;
+          const stockTag = minStock !== null
+            ? `<span class="tag">Tồn ${formatNumber(minStock)}</span>`
+            : `<span class="tag warning">Kho chưa cập nhật</span>`;
+          const lowStockTag = isProductLowStock(product)
+            ? `<span class="tag warning">Low stock</span>`
+            : "";
+          const updatedTag = product.updatedAt
+            ? `<span class="tag">Cập nhật ${formatDateTime(product.updatedAt)}</span>`
+            : "";
           return `
             <div class="admin-item ${activeProductId === product.id ? "active" : ""}" data-product-id="${product.id}">
               <div class="admin-item-thumb">${
@@ -8011,6 +8802,9 @@ const computeTotals = (order, settings, products, overrides = {}) => {
                   <span class="tag">${sourceLabel(product.source)}</span>
                   ${product.hidden ? '<span class="tag">Ẩn</span>' : ""}
                   ${tags}
+                  ${lowStockTag}
+                  ${stockTag}
+                  ${updatedTag}
                 </div>
               </div>
               <div class="admin-item-actions">
@@ -8064,12 +8858,21 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         return;
       }
       if (action === "remove") {
-        product.deletedAt = Date.now();
-        product.hidden = true;
-        product.updatedAt = Date.now();
+        const confirmMessage = product.name
+          ? `Bạn có chắc muốn xoá vĩnh viễn "${product.name}"?`
+          : "Bạn có chắc muốn xoá vĩnh viễn sản phẩm này?";
+        if (!window.confirm(confirmMessage)) return;
+        const index = products.findIndex((entry) => entry.id === id);
+        if (index >= 0) {
+          products.splice(index, 1);
+        }
+        addDeletedProductId(id);
         setProducts(products);
         if (activeProductId === id) resetForm();
         renderProductList();
+        setAutoHint("Đã xoá, sản phẩm không còn xuất hiện trong danh sách chính.");
+        showOrderNotice(`Đã xoá sản phẩm ${product.name || product.id || id}.`);
+        return;
       }
     });
 
@@ -8194,6 +8997,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
             ...extracted,
             ...extractFromHtml(result.html, normalized, result.blocked),
           };
+          extracted = enhanceExtractedDataWithRawHints(result.html, extracted);
           if (result.blocked) {
             fetchError = "Taobao đang chặn truy cập, dữ liệu có thể thiếu.";
           }
@@ -8271,11 +9075,12 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           baseUrl = normalizeProductUrl(detectedEntries[0].url) || "";
         }
         if (productLink && baseUrl) productLink.value = baseUrl;
-        const extracted = {
+        let extracted = {
           ...extractFromHtml(raw, baseUrl || ""),
           source: baseUrl ? inferSourceFromUrl(baseUrl) : "web",
           sourceUrl: baseUrl || "",
         };
+        extracted = enhanceExtractedDataWithRawHints(raw, extracted);
         if (baseUrl) {
           const id = getProductIdFromUrl(baseUrl);
           const nameHints = buildNameHintsFromRaw(raw);
@@ -8573,6 +9378,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
             extracted.sizes?.[0] ||
             extracted.variants?.find((variant) => variant.props?.size)?.props?.size ||
             "";
+          const stockValue = getDefaultStockValue();
+          const palette = getProductPalette();
           addedProducts.push({
             id: nextId,
             name,
@@ -8582,11 +9389,12 @@ const computeTotals = (order, settings, products, overrides = {}) => {
             source,
             sourceUrl: extracted.sourceUrl || normalized,
             tags: autoTags,
-            sizesText,
-            sizesNum,
-            stock: sizes.reduce((acc, size) => ({ ...acc, [size]: 3 }), {}),
-            palette: ["#2a2f45", "#374766", "#ffb347"],
-            image,
+          sizesText,
+          sizesNum,
+          stock: sizes.reduce((acc, size) => ({ ...acc, [size]: stockValue }), {}),
+          palette,
+          defaultStock: stockValue,
+          image,
             images: finalImages,
             rating: qualityPassed && quality.passed ? quality.rating : null,
             ratingCount: qualityPassed && quality.passed ? quality.ratingCount : null,
@@ -8684,6 +9492,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         const image = finalImages[0] || (productImage ? productImage.value.trim() : "");
         const sourceUrl = productLink ? productLink.value.trim() : "";
         const meta = importedMeta || {};
+        const stockValue = getDefaultStockValue();
+        const palette = getProductPalette();
         products.unshift({
           id: nextId,
           name,
@@ -8692,16 +9502,17 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           category: productCategory.value,
           source: productSource.value,
           sourceUrl,
-        tags: productTags.value
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean),
-        sizesText,
-        sizesNum,
-        defaultColor: productColor ? productColor.value.trim() : "",
-        defaultSize: productDefaultSize ? productDefaultSize.value.trim() : "",
-        stock: sizes.reduce((acc, size) => ({ ...acc, [size]: 3 }), {}),
-          palette: ["#2a2f45", "#374766", "#ffb347"],
+          tags: productTags.value
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean),
+          sizesText,
+          sizesNum,
+          defaultColor: productColor ? productColor.value.trim() : "",
+          defaultSize: productDefaultSize ? productDefaultSize.value.trim() : "",
+          stock: sizes.reduce((acc, size) => ({ ...acc, [size]: stockValue }), {}),
+          palette,
+          defaultStock: stockValue,
           image,
           images: finalImages,
           rating: meta.rating ?? null,
@@ -8738,8 +9549,9 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         const sizesText = sizes.filter((size) => /^[A-Za-z]+$/.test(size));
         const sizesNum = sizes.filter((size) => /^[0-9]+$/.test(size));
         const currentStock = products[index].stock || {};
+        const defaultStock = getDefaultStockValue();
         const stock = sizes.reduce((acc, size) => {
-          acc[size] = currentStock[size] ?? 3;
+          acc[size] = currentStock[size] ?? defaultStock;
           return acc;
         }, {});
         const imagesInput = collectImageInputs();
@@ -8749,6 +9561,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         const finalImages = cachedImages.length ? cachedImages : pendingImages;
         const sourceUrl = productLink ? productLink.value.trim() : products[index].sourceUrl || "";
         const meta = importedMeta || {};
+        const palette = getProductPalette();
         products[index] = {
           ...products[index],
           name,
@@ -8761,12 +9574,12 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           .split(",")
           .map((tag) => tag.trim())
           .filter(Boolean),
-        sizesText,
-        sizesNum,
-        defaultColor: productColor ? productColor.value.trim() : products[index].defaultColor || "",
-        defaultSize:
-          productDefaultSize ? productDefaultSize.value.trim() : products[index].defaultSize || "",
-        stock,
+          sizesText,
+          sizesNum,
+          defaultColor: productColor ? productColor.value.trim() : products[index].defaultColor || "",
+          defaultSize:
+            productDefaultSize ? productDefaultSize.value.trim() : products[index].defaultSize || "",
+          stock,
           image:
             finalImages[0] ||
             (productImage ? productImage.value.trim() : "") ||
@@ -8778,6 +9591,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           positiveRate: meta.positiveRate ?? products[index].positiveRate ?? null,
           soldCount: meta.soldCount ?? products[index].soldCount ?? null,
           hidden: productHidden?.checked || false,
+          palette,
+          defaultStock,
           updatedAt: Date.now(),
         };
         setProducts(products);

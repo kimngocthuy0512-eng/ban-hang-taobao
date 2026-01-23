@@ -86,122 +86,201 @@
             </div>
             <div class="admin-list" id="productList"></div>
           </div>
-          <div class="card form-grid">
-            <div class="field">
-              <label for="autoLink">Auto import (dán link)</label>
-              <input id="autoLink" type="url" placeholder="Link Taobao / nguồn khác" />
-            </div>
-            <div class="segment">
-              <button class="btn ghost" id="autoFill" type="button">Thử lấy dữ liệu</button>
-              <a class="btn ghost" id="autoOpen" href="#" target="_blank" rel="noopener"
-                >Mở link</a
-              >
-            </div>
-            <p class="tag" id="autoImportHint">Nhập link và bấm thử lấy dữ liệu.</p>
-            <details class="panel compact">
-              <summary>Dán HTML/JSON để lấy dữ liệu đầy đủ</summary>
-              <div class="form-grid">
-                <div class="field">
-                  <label for="autoPaste">Dán HTML/JSON</label>
-                  <textarea
-                    id="autoPaste"
-                    rows="4"
-                    placeholder="Mở trang Taobao, Ctrl+U (View Source), copy toàn bộ rồi dán vào đây."
-                  ></textarea>
-                </div>
-                <button class="btn ghost" id="autoParse" type="button">Phân tích nội dung</button>
+          <div class="card form-grid admin-product-card">
+            <div class="admin-product-heading">
+              <div>
+                <h3>Thêm &amp; tinh chỉnh sản phẩm</h3>
+                <p class="helper">
+                  Dán link Taobao, hệ thống sẽ tự động ghi lại tên, giá, hình ảnh, màu sắc và size để bạn chỉ việc tinh chỉnh nội dung.
+                  Bấm “Thử lấy dữ liệu” trước khi lưu để đảm bảo đầy đủ thông tin.
+                </p>
               </div>
-              <div class="form-grid">
-                <div class="field">
-                  <label for="bulkLinks">Danh sách link tách ra</label>
-                  <textarea
-                    id="bulkLinks"
-                    rows="3"
-                    placeholder="Danh sách link sẽ hiển thị tại đây (mỗi dòng 1 link)."
-                  ></textarea>
-                </div>
-                <div class="field">
-                  <label for="bulkLimit">Giới hạn import</label>
-                  <input id="bulkLimit" type="number" min="1" max="200" value="30" />
-                </div>
-                <div class="segment">
-                  <button class="btn ghost" id="bulkExtract" type="button">Quét link hàng loạt</button>
-                  <button class="btn ghost" id="bulkImport" type="button">Import hàng loạt</button>
-                  <button class="btn ghost" id="bulkCacheAll" type="button">Lưu ảnh vĩnh viễn</button>
-                </div>
-                <p class="tag" id="bulkImportHint">Chỉ nhận sản phẩm ≥4 sao, bình luận tích cực, mua ổn định.</p>
+              <span class="tag">Chỉ lấy sản phẩm chất lượng cao</span>
+            </div>
+            <div class="admin-product-section">
+              <div class="field">
+                <label for="autoLink">Auto import (dán link)</label>
+                <input id="autoLink" type="url" placeholder="Link Taobao / nguồn khác" />
               </div>
-            </details>
-            <div class="field">
-              <label for="productName">Tên sản phẩm</label>
-              <input id="productName" type="text" />
+              <div class="segment">
+                <button class="btn ghost" id="autoFill" type="button">Thử lấy dữ liệu</button>
+                <a class="btn ghost" id="autoOpen" href="#" target="_blank" rel="noopener">Mở link</a>
+              </div>
+              <p class="tag" id="autoImportHint">Nhập link và bấm thử lấy dữ liệu.</p>
+              <details class="panel compact">
+                <summary>Dán HTML/JSON để lấy dữ liệu đầy đủ</summary>
+                <div class="form-grid">
+                  <div class="field">
+                    <label for="autoPaste">Dán HTML/JSON</label>
+                    <textarea
+                      id="autoPaste"
+                      rows="4"
+                      placeholder="Mở trang Taobao, Ctrl+U (View Source), copy toàn bộ rồi dán vào đây."
+                    ></textarea>
+                  </div>
+                  <button class="btn ghost" id="autoParse" type="button">Phân tích nội dung</button>
+                </div>
+                <div class="form-grid">
+                  <div class="field">
+                    <label for="bulkLinks">Danh sách link tách ra</label>
+                    <textarea
+                      id="bulkLinks"
+                      rows="3"
+                      placeholder="Danh sách link sẽ hiển thị tại đây (mỗi dòng 1 link)."
+                    ></textarea>
+                  </div>
+                  <div class="field">
+                    <label for="bulkLimit">Giới hạn import</label>
+                    <input id="bulkLimit" type="number" min="1" max="200" value="30" />
+                  </div>
+                  <div class="segment">
+                    <button class="btn ghost" id="bulkExtract" type="button">Quét link hàng loạt</button>
+                    <button class="btn ghost" id="bulkImport" type="button">Import hàng loạt</button>
+                    <button class="btn ghost" id="bulkCacheAll" type="button">Lưu ảnh vĩnh viễn</button>
+                  </div>
+                  <p class="tag" id="bulkImportHint">Chỉ nhận sản phẩm ≥4 sao, bình luận tích cực, mua ổn định.</p>
+                </div>
+              </details>
             </div>
-            <div class="field">
-              <label for="productDesc">Mô tả</label>
-              <textarea id="productDesc" rows="2"></textarea>
+            <div class="admin-import-summary card soft" id="importPreview">
+              <h4>Thông tin lấy nhanh</h4>
+              <div class="admin-import-summary-grid">
+                <div>
+                  <span class="label">Tên</span>
+                  <strong data-import-name>Chưa có dữ liệu</strong>
+                </div>
+                <div>
+                  <span class="label">Giá</span>
+                  <strong data-import-price>0</strong>
+                </div>
+                <div>
+                  <span class="label">Size</span>
+                  <strong data-import-sizes>Chưa có</strong>
+                </div>
+                <div>
+                  <span class="label">Màu sắc</span>
+                  <strong data-import-colors>Chưa có</strong>
+                </div>
+              </div>
+              <div class="admin-import-meta">
+                <span class="helper small" id="importPreviewSource">Nguồn: Chưa có</span>
+                <a
+                  class="helper small"
+                  id="importPreviewSourceLink"
+                  href="#"
+                  target="_blank"
+                  rel="noopener"
+                >Chưa có link</a>
+                <span class="tag" id="importPreviewQualityTag">Chưa có đánh giá</span>
+                <span class="tag import-preview-rating" id="importPreviewRatingTag">Chưa có đánh giá</span>
+              </div>
+              <div class="admin-import-desc">
+                <span class="helper small">Mô tả gợi ý</span>
+                <p class="helper small" id="importPreviewDesc">Chưa có mô tả từ link.</p>
+              </div>
+              <div class="admin-import-color-preview" id="importPreviewColorChips">
+                <span class="helper small">Chưa có màu sắc gợi ý.</span>
+              </div>
+              <div class="admin-import-preview-images" id="importPreviewImages"></div>
+              <p class="helper small" id="importPreviewNote">Kết quả sẽ hiển thị sau khi import.</p>
             </div>
-            <div class="field">
-              <label for="productPrice">Giá gốc (Base)</label>
-              <input id="productPrice" type="number" step="0.1" />
+            <div class="admin-import-helper">
+              <h4>Quy trình lấy dữ liệu</h4>
+              <ol>
+                <li>Copy link Taobao và dán vào ô Auto import, sau đó bấm “Thử lấy dữ liệu”.</li>
+                <li>Hệ thống sẽ gọi backend crawler, truy xuất HTML/JSON và điền tự động các trường.</li>
+                <li>Nếu cần, dán thẳng HTML/JSON để phân tích thủ công và cập nhật link hàng loạt.</li>
+                <li>Kiểm tra tên, giá, màu, size rồi nhấn “Thêm mới” hoặc “Cập nhật”.</li>
+              </ol>
             </div>
-            <div class="field">
-              <label for="productCategory">Danh mục</label>
-              <select id="productCategory">
-                <option value="outerwear">Outerwear</option>
-                <option value="sneakers">Sneakers</option>
-                <option value="bags">Bags</option>
-                <option value="lifestyle">Lifestyle</option>
-              </select>
+            <div class="admin-product-fields form-grid">
+              <div class="field">
+                <label for="productName">Tên sản phẩm</label>
+                <input id="productName" type="text" />
+              </div>
+              <div class="field">
+                <label for="productDesc">Mô tả</label>
+                <textarea id="productDesc" rows="2"></textarea>
+              </div>
+              <div class="field">
+                <label for="productPrice">Giá gốc (Base)</label>
+                <input id="productPrice" type="number" step="0.1" />
+              </div>
+              <div class="field">
+                <label for="productCategory">Danh mục</label>
+                <select id="productCategory">
+                  <option value="outerwear">Outerwear</option>
+                  <option value="sneakers">Sneakers</option>
+                  <option value="bags">Bags</option>
+                  <option value="lifestyle">Lifestyle</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="productSource">Nguồn hàng</label>
+                <select id="productSource">
+                  <option value="web">Nội bộ</option>
+                  <option value="taobao_link">Link Taobao</option>
+                  <option value="taobao_sync">Sync Taobao</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="productLink">Link sản phẩm (URL)</label>
+                <input id="productLink" type="url" placeholder="https://item.taobao.com/item.htm?id=..." />
+              </div>
+              <div class="field">
+                <label for="productTags">Tags (phân tách bằng dấu phẩy)</label>
+                <input id="productTags" type="text" placeholder="nổi bật, mới" />
+              </div>
             </div>
-            <div class="field">
-              <label for="productSource">Nguồn hàng</label>
-              <select id="productSource">
-                <option value="web">Nội bộ</option>
-                <option value="taobao_link">Link Taobao</option>
-                <option value="taobao_sync">Sync Taobao</option>
-              </select>
+            <div class="admin-product-meta form-grid">
+              <div class="field">
+                <label for="productSizes">Size (S,M,L hoặc 38,39)</label>
+                <input id="productSizes" type="text" />
+              </div>
+              <div class="field">
+                <label for="productDefaultSize">Size mặc định</label>
+                <input id="productDefaultSize" type="text" placeholder="M" />
+              </div>
+              <div class="field">
+                <label for="productDefaultStock">Số lượng mặc định mỗi size</label>
+                <input id="productDefaultStock" type="number" min="0" value="3" />
+              </div>
+              <div class="field">
+                <label for="productColor">Màu mặc định</label>
+                <input id="productColor" type="text" placeholder="Đen" />
+              </div>
+              <div class="field palette-field">
+                <label for="productPaletteInput">Màu sắc mở rộng</label>
+                <div class="palette-input-row">
+                  <input id="productPaletteInput" type="text" placeholder="#ffb347 hoặc Cam" />
+                  <button class="btn ghost small" id="productPaletteAdd" type="button">Thêm màu</button>
+                </div>
+                <div class="color-chips" id="productPaletteChips"></div>
+              </div>
             </div>
-            <div class="field">
-              <label for="productLink">Link sản phẩm (URL)</label>
-              <input id="productLink" type="url" placeholder="https://item.taobao.com/item.htm?id=..." />
-            </div>
-            <div class="field">
-              <label for="productTags">Tags (phân tách bằng dấu phẩy)</label>
-              <input id="productTags" type="text" placeholder="nổi bật, mới" />
-            </div>
-            <div class="field">
-              <label for="productSizes">Size (S,M,L hoặc 38,39)</label>
-              <input id="productSizes" type="text" />
-            </div>
-            <div class="field">
-              <label for="productColor">Màu mặc định</label>
-              <input id="productColor" type="text" placeholder="Đen" />
-            </div>
-            <div class="field">
-              <label for="productDefaultSize">Size mặc định</label>
-              <input id="productDefaultSize" type="text" placeholder="M" />
-            </div>
-            <div class="field">
-              <label for="productImage">Ảnh sản phẩm (URL)</label>
-              <input id="productImage" type="text" placeholder="assets/images/p-01.svg" />
-            </div>
-            <div class="field">
-              <label for="productImages">Ảnh phụ (nhiều URL, cách nhau dấu phẩy)</label>
-              <textarea
-                id="productImages"
-                rows="2"
-                placeholder="https://.../1.jpg, https://.../2.jpg"
-              ></textarea>
-            </div>
-            <div class="field">
-              <label>Xem trước ảnh</label>
-              <div class="image-preview" id="productImagePreview"></div>
+            <div class="admin-product-images form-grid">
+              <div class="field">
+                <label for="productImage">Ảnh sản phẩm (URL)</label>
+                <input id="productImage" type="text" placeholder="assets/images/p-01.svg" />
+              </div>
+              <div class="field">
+                <label for="productImages">Ảnh phụ (nhiều URL, cách nhau dấu phẩy)</label>
+                <textarea
+                  id="productImages"
+                  rows="2"
+                  placeholder="https://.../1.jpg, https://.../2.jpg"
+                ></textarea>
+              </div>
+              <div class="field">
+                <label>Xem trước ảnh</label>
+                <div class="image-preview" id="productImagePreview"></div>
+              </div>
             </div>
             <label class="checkbox-row">
               <input id="productHidden" type="checkbox" />
               <span>Ẩn sản phẩm khỏi cửa hàng</span>
             </label>
-            <div class="segment">
+            <div class="segment admin-product-actions">
               <button class="btn primary" id="addProduct" type="button">Thêm mới</button>
               <button class="btn ghost" id="updateProduct" type="button">Cập nhật</button>
               <button class="btn ghost" id="resetProduct" type="button">Làm mới form</button>
