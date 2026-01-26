@@ -242,6 +242,24 @@
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
 
+  const debounce = (callback, delay = 120) => {
+    let timeoutId = null;
+    const debounced = (...args) => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        timeoutId = null;
+        callback(...args);
+      }, delay);
+    };
+    debounced.cancel = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+    return debounced;
+  };
+
   const getSyncBaseUrl = (settings) => {
     const raw = (settings?.syncEndpoint || "").trim();
     if (!raw) return "";
@@ -4210,6 +4228,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       renderProductGrid(allFilteredProducts, grid, viewMode);
     };
 
+    const debouncedApplyFilters = debounce(applyFilters, 120);
+
     const setViewMode = (mode) => {
       viewMode = mode;
       store.setItem(KEYS.viewMode, mode);
@@ -4245,7 +4265,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     }
 
     [searchInput, priceMin, priceMax].forEach((input) => {
-      input.addEventListener("input", applyFilters);
+      input.addEventListener("input", debouncedApplyFilters);
     });
     [sizeFilter, categoryFilter, sortFilter].forEach((select) => {
       select.addEventListener("change", applyFilters);
