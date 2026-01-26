@@ -263,23 +263,18 @@
               </div>
             </div>
             <div class="link-request-group link-request-attachments">
-              <div class="field taobao-file-field">
-                <label for="taobaoFiles">Ảnh minh họa (gửi từ máy)</label>
-                <p class="helper tiny">
-                  Thả ảnh hoặc nhấn nút để chọn trực tiếp từ máy của bạn (JPG/PNG, tối đa 4 ảnh).
-                </p>
-                <div class="link-request-dropzone" id="taobaoFileDropzone" tabindex="0">
-                  <span>Kéo/thả ảnh hoặc chọn từ máy</span>
-                  <button class="btn ghost tiny" type="button" data-taobao-trigger>Chọn file</button>
-                </div>
-                <input
-                  type="file"
-                  id="taobaoFiles"
-                  name="taobaoFiles"
-                  accept="image/*"
-                  multiple
-                  class="link-request-file-input"
-                />
+            <div class="field">
+              <label for="taobaoFiles">Ảnh minh họa (gửi từ máy)</label>
+              <input
+                type="file"
+                id="taobaoFiles"
+                name="taobaoFiles"
+                accept="image/*"
+                multiple
+              />
+              <p class="helper small">
+                Chọn trực tiếp ảnh từ máy của bạn, tối đa 4 file JPG/PNG để admin đối chiếu nhanh.
+              </p>
                 <div class="link-request-preview" id="taobaoFilePreview"></div>
               </div>
             </div>

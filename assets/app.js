@@ -4000,74 +4000,46 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       `;
     };
 
-    const scheduleIdleChunk = (callback) => {
-      if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
-        window.requestIdleCallback(callback, { timeout: 200 });
-      } else {
-        setTimeout(callback, 0);
-      }
-    };
-
     const renderProductGrid = (products, container, mode = "grid", append = false, nextOffset = 0) => {
-      if (!container) return;
-      const settings = getSettings();
-      container.dataset.view = mode;
-      const removeSentinel = () => {
-        const existingSentinel = container.querySelector(".load-more-sentinel");
-        if (existingSentinel) existingSentinel.remove();
-      };
-
-      const visibleProducts = Array.isArray(products) ? products : [];
-      if (!visibleProducts.length) {
-        removeSentinel();
-        container.innerHTML = "<div class=\"card empty-state\">Không tìm thấy sản phẩm phù hợp.</div>";
-        return;
-      }
-
-      if (!append) {
-        container.innerHTML = "";
-      }
-      removeSentinel();
-
-      const chunkSize = 12;
-      let index = 0;
-
-      const finalize = () => {
-        removeSentinel();
-        if (nextOffset > 0) {
-          container.insertAdjacentHTML(
-            "beforeend",
-            `<div class="load-more-sentinel" data-offset="${nextOffset}">
-              <div class="card empty-state">Đang tải thêm sản phẩm...</div>
-            </div>`
-          );
-        }
-        bindProductCardNavigation(container);
-        bindProductCardThumbnails(container);
-        bindWishlistToggle(container);
-      };
-
-      const renderChunk = () => {
-        const limit = Math.min(chunkSize, visibleProducts.length - index);
-        if (limit <= 0) {
-          finalize();
-          return;
-        }
-        const chunkHtml = visibleProducts
-          .slice(index, index + limit)
-          .map((product) => buildProductCard(product, settings))
-          .join("");
-        index += limit;
-        container.insertAdjacentHTML("beforeend", chunkHtml);
-        if (index < visibleProducts.length) {
-          scheduleIdleChunk(renderChunk);
-        } else {
-          finalize();
-        }
-      };
-
-      scheduleIdleChunk(renderChunk);
+    if (!container) return;
+    const settings = getSettings();
+    container.dataset.view = mode;
+    const removeSentinel = () => {
+      const existingSentinel = container.querySelector(".load-more-sentinel");
+      if (existingSentinel) existingSentinel.remove();
     };
+
+    const visibleProducts = Array.isArray(products) ? products : [];
+    if (!visibleProducts.length) {
+      removeSentinel();
+      container.innerHTML = "<div class=\"card empty-state\">Không tìm thấy sản phẩm phù hợp.</div>";
+      return;
+    }
+
+    const cardsHtml = visibleProducts.map((product) => buildProductCard(product, settings)).join("");
+
+    if (append) {
+      removeSentinel();
+      container.insertAdjacentHTML("beforeend", cardsHtml);
+    } else {
+      removeSentinel();
+      container.innerHTML = cardsHtml;
+    }
+
+    if (nextOffset > 0) {
+      removeSentinel();
+      container.insertAdjacentHTML(
+        "beforeend",
+        `<div class="load-more-sentinel" data-offset="${nextOffset}">
+          <div class="card empty-state">Đang tải thêm sản phẩm...</div>
+        </div>`
+      );
+    }
+
+    bindProductCardNavigation(container);
+    bindProductCardThumbnails(container);
+    bindWishlistToggle(container);
+  };
 
   const SYNC_WARNING_ID = "shopSyncWarning";
 
@@ -4509,6 +4481,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const filterSummary = document.getElementById("filterSummary");
     const resultCount = document.getElementById("resultCount");
     const clearFiltersBtn = document.getElementById("clearFilters");
+    const restoreProductsBtn = document.getElementById("restoreProducts");
 
     const params = new URLSearchParams(window.location.search);
     const query = params.get("q");
@@ -4590,6 +4563,27 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       renderProductGrid(allFilteredProducts, grid, viewMode);
     };
 
+    const restoreCatalogProducts = () => {
+      const currentProducts = Array.isArray(getProducts()) ? getProducts() : [];
+      const existingIds = new Set(
+        currentProducts.map((product) => product?.id).filter(Boolean)
+      );
+      const missingDefaults = DEFAULT_PRODUCTS.filter(
+        (product) => product?.id && !existingIds.has(product.id)
+      );
+      const deletedIds = getDeletedProductIds();
+      if (!missingDefaults.length && deletedIds.size === 0) {
+        showNotification("Đang hiển thị toàn bộ sản phẩm.", "info");
+        return;
+      }
+      const nextProducts = [...currentProducts];
+      missingDefaults.forEach((product) => nextProducts.push(product));
+      setDeletedProductIds([]);
+      setProducts(nextProducts);
+      showNotification("Đã khôi phục toàn bộ catalog mẫu.", "info");
+      applyFilters();
+    };
+
     const debouncedApplyFilters = debounce(applyFilters, 120);
 
     const setViewMode = (mode) => {
@@ -4624,6 +4618,10 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         }
         applyFilters();
       });
+    }
+
+    if (restoreProductsBtn) {
+      restoreProductsBtn.addEventListener("click", restoreCatalogProducts);
     }
 
     [searchInput, priceMin, priceMax].forEach((input) => {
@@ -4722,10 +4720,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const taobaoLinkForm = document.getElementById("taobaoLinkForm");
     const taobaoLinkInput = document.getElementById("taobaoLinkInput");
     const taobaoDescriptionInput = document.getElementById("taobaoDescription");
-    const taobaoDescriptionInput = document.getElementById("taobaoDescription");
     const taobaoFilesInput = document.getElementById("taobaoFiles");
-    const taobaoFileDropzone = document.getElementById("taobaoFileDropzone");
-    const taobaoFileTrigger = document.querySelector("[data-taobao-trigger]");
     const taobaoFilePreview = document.getElementById("taobaoFilePreview");
     const taobaoFormFeedback = document.getElementById("taobaoFormFeedback");
     const taobaoLinkReset = document.getElementById("taobaoLinkReset");
@@ -5130,61 +5125,6 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       if (!message) {
         taobaoFormFeedback.classList.remove("danger", "success");
       }
-    };
-
-    const handleTaobaoFilesChange = (files, { suppressFeedback = false } = {}) => {
-      const count = files?.length || 0;
-      if (!count) {
-        clearTaobaoPreview();
-        setTaobaoFeedback("");
-        return;
-      }
-      if (!suppressFeedback) {
-        if (count > TAOBAO_ATTACHMENT_LIMIT) {
-          setTaobaoFeedback(`Chỉ được gửi tối đa ${TAOBAO_ATTACHMENT_LIMIT} ảnh.`, true);
-        } else {
-          setTaobaoFeedback("");
-        }
-      }
-      updateTaobaoPreview(files);
-    };
-
-    const highlightTaobaoDropzone = (active) => {
-      if (!taobaoFileDropzone) return;
-      taobaoFileDropzone.classList.toggle("active", active);
-    };
-
-    const applyTaobaoDropFiles = (fileList) => {
-      if (!fileList || !fileList.length) {
-        setTaobaoFeedback("");
-        return;
-      }
-      const validImages = Array.from(fileList).filter((file) =>
-        (file.type || "").startsWith("image/")
-      );
-      if (!validImages.length) {
-        setTaobaoFeedback("Chỉ hỗ trợ ảnh JPG/PNG.", true);
-        return;
-      }
-      const limited = validImages.slice(0, TAOBAO_ATTACHMENT_LIMIT);
-      const transfer =
-        typeof DataTransfer !== "undefined"
-          ? new DataTransfer()
-          : null;
-      if (transfer) {
-        limited.forEach((file) => transfer.items.add(file));
-      }
-      const targetFiles = transfer?.files || limited;
-      const overflow = validImages.length > TAOBAO_ATTACHMENT_LIMIT;
-      if (overflow) {
-        setTaobaoFeedback(`Chỉ được gửi tối đa ${TAOBAO_ATTACHMENT_LIMIT} ảnh.`, true);
-      } else {
-        setTaobaoFeedback("");
-      }
-      if (transfer && taobaoFilesInput) {
-        taobaoFilesInput.files = transfer.files;
-      }
-      handleTaobaoFilesChange(targetFiles, { suppressFeedback: true });
     };
 
     const setReviewFeedback = (message, isError = false) => {
@@ -5887,7 +5827,12 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     if (taobaoFilesInput) {
       taobaoFilesInput.addEventListener("change", (event) => {
         const files = event.target.files || [];
-        handleTaobaoFilesChange(files);
+        if (files.length > TAOBAO_ATTACHMENT_LIMIT) {
+          setTaobaoFeedback(`Chỉ được gửi tối đa ${TAOBAO_ATTACHMENT_LIMIT} ảnh.`, true);
+        } else {
+          setTaobaoFeedback("");
+        }
+        updateTaobaoPreview(files);
       });
     }
 
@@ -5908,41 +5853,6 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
     if (taobaoLinkForm) {
       taobaoLinkForm.addEventListener("submit", handleTaobaoSubmit);
-    }
-
-    if (taobaoFileTrigger) {
-      taobaoFileTrigger.addEventListener("click", () => {
-        if (taobaoFilesInput) taobaoFilesInput.click();
-      });
-    }
-
-    if (taobaoFileDropzone) {
-      taobaoFileDropzone.addEventListener("click", () => {
-        if (taobaoFilesInput) taobaoFilesInput.click();
-      });
-      taobaoFileDropzone.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          if (taobaoFilesInput) taobaoFilesInput.click();
-        }
-      });
-      taobaoFileDropzone.addEventListener("dragover", (event) => {
-        event.preventDefault();
-        highlightTaobaoDropzone(true);
-      });
-      ["dragleave", "drop"].forEach((name) => {
-        taobaoFileDropzone.addEventListener(name, (event) => {
-          event.preventDefault();
-          if (name === "drop") {
-            applyTaobaoDropFiles(event.dataTransfer?.files || []);
-          }
-          highlightTaobaoDropzone(false);
-        });
-      });
-      taobaoFileDropzone.addEventListener("dragenter", (event) => {
-        event.preventDefault();
-        highlightTaobaoDropzone(true);
-      });
     }
 
     const ensureVariantSelection = () => {

@@ -2705,62 +2705,6 @@ textarea {
   margin: 0;
 }
 
-.taobao-file-field .helper.tiny {
-  font-size: 0.7rem;
-  text-transform: none;
-}
-
-.link-request-dropzone {
-  margin-top: 0.2rem;
-  border: 1px dashed rgba(15, 23, 42, 0.4);
-  border-radius: var(--radius-sm);
-  padding: 0.8rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  background: rgba(248, 250, 252, 0.8);
-  cursor: pointer;
-  transition: border 0.2s ease, box-shadow 0.2s ease;
-}
-
-.link-request-dropzone span {
-  font-size: 0.8rem;
-  color: rgba(15, 23, 42, 0.65);
-}
-
-.link-request-dropzone.active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(255, 179, 71, 0.35);
-}
-
-.link-request-file-input {
-  display: none;
-}
-
-
-.link-request-group {
-  border: 1px dashed rgba(15, 23, 42, 0.12);
-  border-radius: var(--radius-sm);
-  padding: 0.85rem 0.9rem;
-  display: grid;
-  gap: 0.85rem;
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.link-request-group.link-request-attachments {
-  border-style: solid;
-  background: rgba(255, 255, 255, 0.97);
-}
-
-.link-request-group .field {
-  margin: 0;
-}
-
-.link-request-group .helper {
-  margin: 0;
-}
-
 
 @media (max-width: 640px) {
   .link-request-card {
@@ -4106,6 +4050,8 @@ textarea {
   margin-top: 0.6rem;
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .filter-status {
