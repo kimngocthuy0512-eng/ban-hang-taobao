@@ -31,21 +31,22 @@
   const KEYS = {
     settings: "oh_settings",
     products: "oh_products",
-    deletedProducts: "oh_deleted_products",
-    cart: "oh_cart",
-    orders: "oh_orders",
-    customers: "oh_customers",
-    deviceCustomerCode: "oh_device_customer_code",
-    productSeq: "oh_product_seq",
-    viewMode: "oh_view_mode",
-    adminAuth: "oh_admin_auth",
-    backup: "oh_backup",
-    backupHistory: "oh_backup_history",
-    syncCheckpoint: "oh_sync_checkpoint",
-    wishlist: "oh_wishlist",
-    recent: "oh_recent",
-    reviews: "oh_reviews",
-  };
+  deletedProducts: "oh_deleted_products",
+  cart: "oh_cart",
+  orders: "oh_orders",
+  customers: "oh_customers",
+  deviceCustomerCode: "oh_device_customer_code",
+  productSeq: "oh_product_seq",
+  viewMode: "oh_view_mode",
+  adminAuth: "oh_admin_auth",
+  backup: "oh_backup",
+  backupHistory: "oh_backup_history",
+  syncCheckpoint: "oh_sync_checkpoint",
+  wishlist: "oh_wishlist",
+  recent: "oh_recent",
+  reviews: "oh_reviews",
+  customerRequests: "oh_customer_requests",
+};
 
   const STATUS = {
     CART: "CART",
@@ -1779,6 +1780,86 @@
     });
   };
 
+  const normalizeExternalUrl = (raw) => {
+    const trimmed = String(raw || "").trim();
+    if (!trimmed) return "";
+    let value = trimmed;
+    if (trimmed.startsWith("//")) value = `https:${trimmed}`;
+    if (!/^https?:\/\//i.test(value)) value = `https://${value}`;
+    return value;
+  };
+
+  const buildProxyFetchUrl = (targetUrl) => {
+    try {
+      const parsed = new URL(targetUrl);
+      const scheme = parsed.protocol.replace(":", "");
+      return `https://r.jina.ai/${scheme}://${parsed.host}${parsed.pathname}${parsed.search}`;
+    } catch (error) {
+      return "";
+    }
+  };
+
+  const parseSimplePageMetadata = (html, sourceUrl) => {
+    if (!html) return {};
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const readMeta = (selector) => doc.querySelector(selector)?.getAttribute("content")?.trim() || "";
+    const title =
+      readMeta('meta[property="og:title"]') ||
+      readMeta('meta[name="title"]') ||
+      readMeta('meta[property="twitter:title"]') ||
+      doc.title ||
+      "";
+    const description =
+      readMeta('meta[property="og:description"]') ||
+      readMeta('meta[name="description"]') ||
+      readMeta('meta[property="twitter:description"]') ||
+      "";
+    const image =
+      normalizeExternalUrl(
+        readMeta('meta[property="og:image"]') ||
+          readMeta('meta[name="twitter:image"]') ||
+          readMeta('meta[property="og:image:secure_url"]') ||
+          ""
+      ) || "";
+    const price =
+      readMeta('meta[property="product:price:amount"]') ||
+      readMeta('meta[property="og:price:amount"]') ||
+      readMeta('meta[name="twitter:data1"]') ||
+      "";
+    return {
+      name: title,
+      desc: description,
+      image,
+      price: price || "",
+      sourceUrl,
+    };
+  };
+
+  const fetchLinkMetadata = async (url) => {
+    if (!url) return null;
+    const normalizedUrl = normalizeExternalUrl(url);
+    if (!normalizedUrl) return null;
+    const proxyUrl = buildProxyFetchUrl(normalizedUrl);
+    if (!proxyUrl) return null;
+    try {
+      const response = await fetch(proxyUrl);
+      if (!response.ok) throw new Error("fetch_failed");
+      const html = await response.text();
+      return parseSimplePageMetadata(html, normalizedUrl);
+    } catch (error) {
+      console.warn("Failed to fetch link metadata:", error);
+      return null;
+    }
+  };
+
+  const getCustomerRequests = () => readStore(KEYS.customerRequests, []);
+  const setCustomerRequests = (requests) =>
+    writeStore(KEYS.customerRequests, Array.isArray(requests) ? requests : []);
+  const addCustomerRequest = (entry) => {
+    const existing = getCustomerRequests();
+    setCustomerRequests([entry, ...existing]);
+  };
+
   const isPriorityProductEntry = (product) =>
     Boolean(product?.primary || product?.priority === "primary" || product?.flags?.includes?.("priority"));
 
@@ -1920,7 +2001,28 @@
     return next;
   };
 
-  const SYNC_KEYS = [KEYS.settings, KEYS.products, KEYS.orders, KEYS.customers];
+  const SYNC_KEYS = [
+    KEYS.settings,
+    KEYS.products,
+    KEYS.orders,
+    KEYS.customers,
+    KEYS.customerRequests,
+  ];
+  const SYNC_LISTENERS = new Set();
+  const registerSyncListener = (listener) => {
+    if (typeof listener === "function") {
+      SYNC_LISTENERS.add(listener);
+    }
+  };
+  const triggerSyncListeners = () => {
+    SYNC_LISTENERS.forEach((listener) => {
+      try {
+        listener();
+      } catch (error) {
+        console.warn("Sync listener failed:", error);
+      }
+    });
+  };
   const SYNC_DELAY = 1200;
   let syncTimer = null;
   let syncInFlight = false;
@@ -2110,6 +2212,7 @@
       !remoteSnapshot || (!hasSyncData(remoteSnapshot) && !hasSyncSettings(remoteSnapshot));
     const merged = mergeSnapshots(localSnapshot, emptyRemote ? {} : remoteSnapshot || {});
     applySyncSnapshot(merged);
+    triggerSyncListeners();
 
     const mergedStamp = getSnapshotStamp(merged);
     const shouldPush =
@@ -2283,6 +2386,7 @@
       qty: item.qty,
       source: item.source || product?.source || "web",
       color,
+      imagePreference: item.imagePreference || null,
     };
   };
 
@@ -2302,6 +2406,7 @@
         const detailParts = [
           snapshot.color ? `Màu ${snapshot.color}` : "",
           snapshot.size ? `Size ${snapshot.size}` : "",
+          snapshot.imagePreference?.label ? `Ảnh: ${snapshot.imagePreference.label}` : "",
           `x${snapshot.qty || 0}`,
           sourceLabel(snapshot.source),
         ]
@@ -3826,93 +3931,143 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       return stripped.split("·")[0].split("·")[0];
     };
 
-  const buildProductCard = (product, settings) => {
-    const price = convertPrice(product.basePrice, settings);
-    const baseWithFee = applyProductFee(product.basePrice);
-    const wished = isWishlisted(product.id);
-    const images = getProductImages(product);
-    const heroImage = images[0] || "";
-    const highlightBadge = (product.tags && product.tags.length ? product.tags[0] : "New").toString().toUpperCase();
-    const isPriority = isPriorityProductEntry(product);
-    const displayName = escapeHtml(getDisplayName(product));
-    const placeholderInitials = (() => {
-      const raw = (product.name || "").trim();
-      if (!raw) return "SP";
-      const initials = raw
-        .split(/\s+/)
-        .filter(Boolean)
-        .map((segment) => segment[0])
-        .filter(Boolean)
-        .slice(0, 2)
-        .join("");
-      if (initials) return initials;
-      return raw.slice(0, 2);
-    })();
-    const placeholderMarkup = `<span class="product-image-placeholder">${escapeHtml(
-      placeholderInitials.toUpperCase()
-    )}</span>`;
-    const imageMarkup = heroImage
-      ? `<img class="product-image-inner" src="${escapeHtml(heroImage)}" loading="eager" alt="${displayName}" />`
-      : placeholderMarkup;
-    return `
-      <article class="card product-card ${wished ? "is-wish" : ""} ${isPriority ? "is-priority" : ""}" data-product-card data-id="${product.id}" tabindex="0">
-        <button class="wish-btn ${wished ? "active" : ""}" type="button" data-wish="${product.id}" aria-pressed="${wished}" aria-label="${wished ? "Bỏ lưu" : "Lưu"}">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 21s-6.7-4.4-9.3-8.2C.6 9.4 2.2 5.8 5.7 5.1c2-.4 3.8.3 5 1.8 1.2-1.5 3-2.2 5-1.8 3.5.7 5.1 4.3 3 7.7C18.7 16.6 12 21 12 21z"></path>
-          </svg>
-        </button>
-        <div class="product-image">
-          <span class="product-highlight-badge">${isPriority ? "Ưu tiên" : highlightBadge}</span>
-          ${imageMarkup}
-          <div class="product-image-gloss"></div>
-          <div class="product-meta-overlay">
-            <h3 class="product-title">${displayName}</h3>
-            <div class="price price-main">${formatCurrency(baseWithFee, settings.baseCurrency)}</div>
+    const buildProductCard = (product, settings) => {
+      const price = convertPrice(product.basePrice, settings);
+      const baseWithFee = applyProductFee(product.basePrice);
+      const wished = isWishlisted(product.id);
+      const images = getProductImages(product);
+      const heroImage = images[0] || "";
+      const highlightBadge = (
+        product.tags && product.tags.length ? product.tags[0] : "New"
+      ).toString().toUpperCase();
+      const isPriority = isPriorityProductEntry(product);
+      const displayName = escapeHtml(getDisplayName(product));
+      const placeholderInitials = (() => {
+        const raw = (product.name || "").trim();
+        if (!raw) return "SP";
+        const initials = raw
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((segment) => segment[0])
+          .filter(Boolean)
+          .slice(0, 2)
+          .join("");
+        if (initials) return initials;
+        return raw.slice(0, 2);
+      })();
+      const placeholderMarkup = `<span class="product-image-placeholder">${escapeHtml(
+        placeholderInitials.toUpperCase()
+      )}</span>`;
+      const imageMarkup = heroImage
+        ? `<img class="product-image-inner" src="${escapeHtml(heroImage)}" loading="eager" alt="${displayName}" />`
+        : placeholderMarkup;
+      const thumbSources = images.slice(0, 5);
+      const thumbButtons =
+        thumbSources.length > 0
+          ? thumbSources
+              .map((src, index) => {
+                const safeSrc = escapeHtml(src);
+                const altLabel = `${displayName} ${index + 1}`;
+                return `
+                  <button type="button" class="product-thumb${index === 0 ? " active" : ""}" data-thumb-src="${safeSrc}" aria-label="${altLabel}">
+                    <img src="${safeSrc}" alt="${altLabel}" loading="lazy" />
+                  </button>
+                `;
+              })
+              .join("")
+          : "";
+      const thumbStrip = thumbButtons
+        ? `<div class="product-thumb-strip" data-product-thumb-strip>${thumbButtons}</div>`
+        : `<div class="product-thumb-strip" data-product-thumb-strip><span class="helper small">Chưa có ảnh phụ.</span></div>`;
+      return `
+        <article class="card product-card ${wished ? "is-wish" : ""} ${isPriority ? "is-priority" : ""}" data-product-card data-id="${product.id}" tabindex="0">
+          <button class="wish-btn ${wished ? "active" : ""}" type="button" data-wish="${product.id}" aria-pressed="${wished}" aria-label="${wished ? "Bỏ lưu" : "Lưu"}">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 21s-6.7-4.4-9.3-8.2C.6 9.4 2.2 5.8 5.7 5.1c2-.4 3.8.3 5 1.8 1.2-1.5 3-2.2 5-1.8 3.5.7 5.1 4.3 3 7.7C18.7 16.6 12 21 12 21z"></path>
+            </svg>
+          </button>
+          <div class="product-image">
+            <span class="product-highlight-badge">${isPriority ? "Ưu tiên" : highlightBadge}</span>
+            ${imageMarkup}
+            <div class="product-image-gloss"></div>
+            <div class="product-meta-overlay">
+              <h3 class="product-title">${displayName}</h3>
+              <div class="price price-main">${formatCurrency(baseWithFee, settings.baseCurrency)}</div>
+            </div>
           </div>
-        </div>
-      </article>
-    `;
-  };
-
-  const renderProductGrid = (products, container, mode = "grid", append = false, nextOffset = 0) => {
-    if (!container) return;
-    const settings = getSettings();
-    container.dataset.view = mode;
-    const removeSentinel = () => {
-      const existingSentinel = container.querySelector(".load-more-sentinel");
-      if (existingSentinel) existingSentinel.remove();
+          ${thumbStrip}
+        </article>
+      `;
     };
 
-    const visibleProducts = Array.isArray(products) ? products : [];
-    if (!visibleProducts.length) {
-      removeSentinel();
-      container.innerHTML = "<div class=\"card empty-state\">Không tìm thấy sản phẩm phù hợp.</div>";
-      return;
-    }
+    const scheduleIdleChunk = (callback) => {
+      if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+        window.requestIdleCallback(callback, { timeout: 200 });
+      } else {
+        setTimeout(callback, 0);
+      }
+    };
 
-    const cardsHtml = visibleProducts.map((product) => buildProductCard(product, settings)).join("");
+    const renderProductGrid = (products, container, mode = "grid", append = false, nextOffset = 0) => {
+      if (!container) return;
+      const settings = getSettings();
+      container.dataset.view = mode;
+      const removeSentinel = () => {
+        const existingSentinel = container.querySelector(".load-more-sentinel");
+        if (existingSentinel) existingSentinel.remove();
+      };
 
-    if (append) {
-      removeSentinel();
-      container.insertAdjacentHTML("beforeend", cardsHtml);
-    } else {
-      removeSentinel();
-      container.innerHTML = cardsHtml;
-    }
+      const visibleProducts = Array.isArray(products) ? products : [];
+      if (!visibleProducts.length) {
+        removeSentinel();
+        container.innerHTML = "<div class=\"card empty-state\">Không tìm thấy sản phẩm phù hợp.</div>";
+        return;
+      }
 
-    if (nextOffset > 0) {
+      if (!append) {
+        container.innerHTML = "";
+      }
       removeSentinel();
-      container.insertAdjacentHTML(
-        "beforeend",
-        `<div class="load-more-sentinel" data-offset="${nextOffset}">
-          <div class="card empty-state">Đang tải thêm sản phẩm...</div>
-        </div>`
-      );
-    }
 
-    bindProductCardNavigation(container);
-    bindWishlistToggle(container);
-  };
+      const chunkSize = 12;
+      let index = 0;
+
+      const finalize = () => {
+        removeSentinel();
+        if (nextOffset > 0) {
+          container.insertAdjacentHTML(
+            "beforeend",
+            `<div class="load-more-sentinel" data-offset="${nextOffset}">
+              <div class="card empty-state">Đang tải thêm sản phẩm...</div>
+            </div>`
+          );
+        }
+        bindProductCardNavigation(container);
+        bindProductCardThumbnails(container);
+        bindWishlistToggle(container);
+      };
+
+      const renderChunk = () => {
+        const limit = Math.min(chunkSize, visibleProducts.length - index);
+        if (limit <= 0) {
+          finalize();
+          return;
+        }
+        const chunkHtml = visibleProducts
+          .slice(index, index + limit)
+          .map((product) => buildProductCard(product, settings))
+          .join("");
+        index += limit;
+        container.insertAdjacentHTML("beforeend", chunkHtml);
+        if (index < visibleProducts.length) {
+          scheduleIdleChunk(renderChunk);
+        } else {
+          finalize();
+        }
+      };
+
+      scheduleIdleChunk(renderChunk);
+    };
 
   const SYNC_WARNING_ID = "shopSyncWarning";
 
@@ -3957,6 +4112,28 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       if (!card) return;
       event.preventDefault();
       navigate(card);
+    });
+  };
+
+  const bindProductCardThumbnails = (container) => {
+    if (!container || container.dataset.thumbBound === "true") return;
+    container.dataset.thumbBound = "true";
+    container.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-thumb-src]");
+      if (!button) return;
+      const card = button.closest("[data-product-card]");
+      if (!card) return;
+      const src = button.dataset.thumbSrc;
+      if (!src) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const heroImage = card.querySelector(".product-image-inner");
+      if (heroImage) {
+        heroImage.src = src;
+      }
+      card.querySelectorAll("[data-thumb-src]").forEach((node) => {
+        node.classList.toggle("active", node === button);
+      });
     });
   };
 
@@ -4015,17 +4192,192 @@ const computeTotals = (order, settings, products, overrides = {}) => {
   const initHome = () => {
     const settings = getSettings();
     const products = getVisibleProducts();
-    const featuredGrid = document.getElementById("featuredGrid");
     renderRatePanel(document.getElementById("homeRates"), settings);
-    if (featuredGrid) {
-      renderProductGrid(products.slice(0, 3), featuredGrid, "compact");
-    }
     renderWishlistSections();
     bindSearchRedirect(
       document.getElementById("homeSearch"),
       document.getElementById("homeSearchBtn"),
       "shop.html"
     );
+
+    const requestSection = document.getElementById("homeRequestSection");
+    if (requestSection) {
+      const nameInput = document.getElementById("requesterName");
+      const fbInput = document.getElementById("requesterFb");
+      const sizeInput = document.getElementById("requestSize");
+      const colorInput = document.getElementById("requestColor");
+      const otherInput = document.getElementById("requestOther");
+      const linkInput = document.getElementById("requestLinkInput");
+      const bulkLinks = document.getElementById("requestBulkLinks");
+      const imageLinks = document.getElementById("requestImageLinks");
+      const addLinkBtn = document.getElementById("requestAddLink");
+      const addMultipleBtn = document.getElementById("requestAddMultiple");
+      const clearLinksBtn = document.getElementById("requestClearLinks");
+      const linksList = document.getElementById("requestLinksList");
+      const submitRequestBtn = document.getElementById("submitRequest");
+      const feedbackEl = document.getElementById("requestFeedback");
+      let requestLinks = [];
+      let submittingRequest = false;
+
+      const renderRequestLinks = () => {
+        if (!linksList) return;
+        if (!requestLinks.length) {
+          linksList.innerHTML = '<span class="helper small">Chưa có link nào.</span>';
+          return;
+        }
+        linksList.innerHTML = requestLinks
+          .map(
+            (value, index) => `
+              <span class="link-item">
+                <strong>${escapeHtml(value)}</strong>
+                <button type="button" data-remove-link="${index}" aria-label="Xóa link">&times;</button>
+              </span>
+            `
+          )
+          .join("");
+      };
+
+      const addRequestLinkValue = (value) => {
+        const normalized = normalizeExternalUrl(value);
+        if (!normalized || requestLinks.includes(normalized)) return false;
+        requestLinks = [...requestLinks, normalized];
+        renderRequestLinks();
+        return true;
+      };
+
+      const addLinksFromMultiline = (raw) => {
+        if (!raw) return false;
+        const entries = raw
+          .split(/\n|,/)
+          .map((value) => value.trim())
+          .filter(Boolean);
+        let added = false;
+        entries.forEach((entry) => {
+          if (addRequestLinkValue(entry)) added = true;
+        });
+        return added;
+      };
+
+      const clearRequestLinks = () => {
+        requestLinks = [];
+        renderRequestLinks();
+      };
+
+      const setFeedback = (message, variant = "info") => {
+        if (!feedbackEl) return;
+        feedbackEl.textContent = message;
+        feedbackEl.classList.add("helper", "small");
+        if (variant === "error") {
+          feedbackEl.classList.add("helper-error");
+        } else {
+          feedbackEl.classList.remove("helper-error");
+        }
+      };
+
+      const collectImageURLs = () =>
+        (String(imageLinks?.value || "")
+          .split(/\n|,/)
+          .map((value) => normalizeExternalUrl(value))
+          .filter(Boolean));
+
+      const handleSubmitRequest = async () => {
+        if (submittingRequest) return;
+        if (!nameInput?.value.trim()) {
+          setFeedback("Vui lòng nhập tên khách hàng trước khi gửi.", "error");
+          return;
+        }
+        if (!requestLinks.length) {
+          setFeedback("Vui lòng thêm ít nhất một link Taobao để admin kiểm tra.", "error");
+          return;
+        }
+        submittingRequest = true;
+        submitRequestBtn?.setAttribute("disabled", "disabled");
+        setFeedback("Đang gửi yêu cầu...");
+        const payloadLinks = await Promise.all(
+          requestLinks.map(async (link) => ({
+            url: link,
+            preview: await fetchLinkMetadata(link),
+          }))
+        );
+        const requestEntry = {
+          id: `req-${Date.now().toString(36)}`,
+          createdAt: new Date().toISOString(),
+          name: nameInput.value.trim(),
+          facebook: fbInput?.value.trim() || "",
+          sizeNote: sizeInput?.value.trim() || "",
+          colorNote: colorInput?.value.trim() || "",
+          otherNote: otherInput?.value.trim() || "",
+          imageLinks: collectImageURLs(),
+          links: payloadLinks,
+        };
+        try {
+          addCustomerRequest(requestEntry);
+          await performSync({ reason: "customer-request", silent: true });
+          setFeedback("Đã gửi yêu cầu. Admin sẽ liên hệ qua Facebook.", "info");
+          if (nameInput) nameInput.value = "";
+          if (fbInput) fbInput.value = "";
+          if (sizeInput) sizeInput.value = "";
+          if (colorInput) colorInput.value = "";
+          if (otherInput) otherInput.value = "";
+          if (linkInput) linkInput.value = "";
+          if (bulkLinks) bulkLinks.value = "";
+          if (imageLinks) imageLinks.value = "";
+          clearRequestLinks();
+        } catch (error) {
+          console.error("Gửi yêu cầu thất bại:", error);
+          setFeedback("Không thể gửi yêu cầu. Vui lòng thử lại.", "error");
+        } finally {
+          submittingRequest = false;
+          submitRequestBtn?.removeAttribute("disabled");
+        }
+      };
+
+      if (addLinkBtn) {
+        addLinkBtn.addEventListener("click", () => {
+          if (linkInput?.value && addRequestLinkValue(linkInput.value)) {
+            linkInput.value = "";
+            setFeedback("Đã thêm link.", "info");
+          } else {
+            setFeedback("Link không hợp lệ hoặc đã tồn tại.", "error");
+          }
+        });
+      }
+
+      if (addMultipleBtn) {
+        addMultipleBtn.addEventListener("click", () => {
+          if (bulkLinks?.value && addLinksFromMultiline(bulkLinks.value)) {
+            bulkLinks.value = "";
+            setFeedback("Đã thêm các link từ danh sách.", "info");
+          } else {
+            setFeedback("Không tìm thấy link mới từ nội dung.", "error");
+          }
+        });
+      }
+
+      if (clearLinksBtn) {
+        clearLinksBtn.addEventListener("click", () => {
+          clearRequestLinks();
+          setFeedback("Đã xoá hết link.");
+        });
+      }
+
+      if (linksList) {
+        linksList.addEventListener("click", (event) => {
+          const button = event.target.closest("[data-remove-link]");
+          if (!button) return;
+          const index = Number(button.dataset.removeLink);
+          if (Number.isNaN(index)) return;
+          requestLinks = requestLinks.filter((_, idx) => idx !== index);
+          renderRequestLinks();
+        });
+      }
+
+      if (submitRequestBtn) {
+        submitRequestBtn.addEventListener("click", handleSubmitRequest);
+      }
+
+      renderRequestLinks();
+    }
   };
 
   const renderAutoImportStatus = (status) => {
@@ -4367,6 +4719,16 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const reviewAttachmentsInput = document.getElementById("reviewAttachments");
     const reviewAttachmentPreview = document.getElementById("reviewAttachmentPreview");
     const reviewFormFeedback = document.getElementById("reviewFormFeedback");
+    const taobaoLinkForm = document.getElementById("taobaoLinkForm");
+    const taobaoLinkInput = document.getElementById("taobaoLinkInput");
+    const taobaoDescriptionInput = document.getElementById("taobaoDescription");
+    const taobaoDescriptionInput = document.getElementById("taobaoDescription");
+    const taobaoFilesInput = document.getElementById("taobaoFiles");
+    const taobaoFileDropzone = document.getElementById("taobaoFileDropzone");
+    const taobaoFileTrigger = document.querySelector("[data-taobao-trigger]");
+    const taobaoFilePreview = document.getElementById("taobaoFilePreview");
+    const taobaoFormFeedback = document.getElementById("taobaoFormFeedback");
+    const taobaoLinkReset = document.getElementById("taobaoLinkReset");
     const reviewStarButtons = Array.from(document.querySelectorAll("[data-rating-star]"));
     const productLongDesc = document.getElementById("productLongDesc");
     const productDescHighlights = document.getElementById("productDescHighlights");
@@ -4380,6 +4742,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const productVariantSelector = document.getElementById("productVariantSelector");
     const productVariantList = document.getElementById("productVariantList");
     const variantFeedback = document.getElementById("variantFeedback");
+    const imageChoiceGrid = document.getElementById("productImageChoiceGrid");
+    const imageChoiceStatus = document.getElementById("productImageChoiceStatus");
     let remoteProductMetadata = null;
 
     const updateProductSummary = () => {
@@ -4682,6 +5046,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
     const REVIEW_ATTACHMENT_LIMIT = 5;
     let attachmentPreviewUrls = [];
+    const TAOBAO_ATTACHMENT_LIMIT = 4;
+    let taobaoAttachmentUrls = [];
 
     const updateRatingLabel = (value) => {
       if (!reviewRatingValue) return;
@@ -4726,6 +5092,99 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       attachmentPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
       attachmentPreviewUrls = [];
       if (reviewAttachmentPreview) reviewAttachmentPreview.innerHTML = "";
+    };
+
+    const clearTaobaoPreview = () => {
+      taobaoAttachmentUrls.forEach((url) => URL.revokeObjectURL(url));
+      taobaoAttachmentUrls = [];
+      if (taobaoFilePreview) taobaoFilePreview.innerHTML = "";
+    };
+
+    const updateTaobaoPreview = (fileList) => {
+      if (!taobaoFilePreview) return;
+      clearTaobaoPreview();
+      if (!fileList || !fileList.length) return;
+      const limited = Array.from(fileList)
+        .filter((file) => (file.type || "").startsWith("image/"))
+        .slice(0, TAOBAO_ATTACHMENT_LIMIT);
+      taobaoAttachmentUrls = limited.map((file) => URL.createObjectURL(file));
+      taobaoFilePreview.innerHTML = limited
+        .map((file, index) => {
+          const safeUrl = escapeHtml(taobaoAttachmentUrls[index] || "");
+          const safeName = escapeHtml(file.name || "Ảnh minh họa");
+          return `<figure><img src="${safeUrl}" alt="${safeName}" title="${safeName}" loading="lazy" /></figure>`;
+        })
+        .join("");
+    };
+
+    const resetTaobaoInputs = () => {
+      if (taobaoLinkForm) taobaoLinkForm.reset();
+      clearTaobaoPreview();
+    };
+
+    const setTaobaoFeedback = (message, isError = false) => {
+      if (!taobaoFormFeedback) return;
+      taobaoFormFeedback.textContent = message || "";
+      taobaoFormFeedback.classList.toggle("danger", Boolean(message) && isError);
+      taobaoFormFeedback.classList.toggle("success", Boolean(message) && !isError);
+      if (!message) {
+        taobaoFormFeedback.classList.remove("danger", "success");
+      }
+    };
+
+    const handleTaobaoFilesChange = (files, { suppressFeedback = false } = {}) => {
+      const count = files?.length || 0;
+      if (!count) {
+        clearTaobaoPreview();
+        setTaobaoFeedback("");
+        return;
+      }
+      if (!suppressFeedback) {
+        if (count > TAOBAO_ATTACHMENT_LIMIT) {
+          setTaobaoFeedback(`Chỉ được gửi tối đa ${TAOBAO_ATTACHMENT_LIMIT} ảnh.`, true);
+        } else {
+          setTaobaoFeedback("");
+        }
+      }
+      updateTaobaoPreview(files);
+    };
+
+    const highlightTaobaoDropzone = (active) => {
+      if (!taobaoFileDropzone) return;
+      taobaoFileDropzone.classList.toggle("active", active);
+    };
+
+    const applyTaobaoDropFiles = (fileList) => {
+      if (!fileList || !fileList.length) {
+        setTaobaoFeedback("");
+        return;
+      }
+      const validImages = Array.from(fileList).filter((file) =>
+        (file.type || "").startsWith("image/")
+      );
+      if (!validImages.length) {
+        setTaobaoFeedback("Chỉ hỗ trợ ảnh JPG/PNG.", true);
+        return;
+      }
+      const limited = validImages.slice(0, TAOBAO_ATTACHMENT_LIMIT);
+      const transfer =
+        typeof DataTransfer !== "undefined"
+          ? new DataTransfer()
+          : null;
+      if (transfer) {
+        limited.forEach((file) => transfer.items.add(file));
+      }
+      const targetFiles = transfer?.files || limited;
+      const overflow = validImages.length > TAOBAO_ATTACHMENT_LIMIT;
+      if (overflow) {
+        setTaobaoFeedback(`Chỉ được gửi tối đa ${TAOBAO_ATTACHMENT_LIMIT} ảnh.`, true);
+      } else {
+        setTaobaoFeedback("");
+      }
+      if (transfer && taobaoFilesInput) {
+        taobaoFilesInput.files = transfer.files;
+      }
+      handleTaobaoFilesChange(targetFiles, { suppressFeedback: true });
     };
 
     const setReviewFeedback = (message, isError = false) => {
@@ -4968,10 +5427,14 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       }
       if (relatedGrid) relatedGrid.innerHTML = "";
       if (stickyBuy) stickyBuy.classList.add("hidden");
+      if (imageChoiceGrid) imageChoiceGrid.innerHTML = "";
+      if (imageChoiceStatus) imageChoiceStatus.textContent = "Không có ảnh mẫu.";
+      selectedImagePreference = null;
       return;
     }
 
     let selectedSize = "";
+    let selectedImagePreference = null;
     addRecent(product.id);
     const palette = product.palette?.length ? product.palette : ["#2a2f45", "#374766", "#ffb347"];
     const baseImages = normalizeImageSources(getProductImages(product));
@@ -5080,6 +5543,57 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       currentImageSrc = optimizedSrc;
     };
 
+    const describeImageChoiceLabel = (src, index = 0) => {
+      const normalized = extractTextFromUrl(src);
+      const colorHint = guessColorFromText(normalized);
+      const fallbackIndex = index >= 0 ? index + 1 : 1;
+      if (colorHint) return `Màu ${colorHint}`;
+      return `Ảnh ${fallbackIndex}`;
+    };
+
+    const updateImageChoiceStatus = () => {
+      if (!imageChoiceStatus) return;
+      if (selectedImagePreference?.label) {
+        imageChoiceStatus.textContent = `Đã chọn ảnh mẫu: ${selectedImagePreference.label}`;
+      } else {
+        imageChoiceStatus.textContent = "Chưa chọn ảnh mẫu.";
+      }
+    };
+
+    const renderImageChoiceGrid = () => {
+      if (!imageChoiceGrid) return;
+      if (!availableImages.length) {
+        imageChoiceGrid.innerHTML = '<p class="helper small">Không có ảnh mẫu để chọn.</p>';
+        return;
+      }
+      imageChoiceGrid.innerHTML = availableImages
+        .map((src, index) => {
+          const label = describeImageChoiceLabel(src, index);
+          const active = selectedImagePreference?.src === src ? " active" : "";
+          const safeSrc = escapeHtml(src);
+          const safeLabel = escapeHtml(label);
+          return `
+            <button class="image-choice-thumb${active}" type="button" data-image="${safeSrc}">
+              <img src="${safeSrc}" alt="${safeLabel}" loading="lazy" />
+              <span class="image-choice-caption">${safeLabel}</span>
+            </button>
+          `;
+        })
+        .join("");
+    };
+
+    const setImagePreferenceValue = (src) => {
+      if (!src) {
+        selectedImagePreference = null;
+        updateImageChoiceStatus();
+        return;
+      }
+      const index = availableImages.indexOf(src);
+      const label = describeImageChoiceLabel(src, index >= 0 ? index : 0);
+      selectedImagePreference = { src, label };
+      updateImageChoiceStatus();
+    };
+
     const renderThumbnailButtons = () => {
       if (!productThumbs) return;
       if (availableImages.length) {
@@ -5097,6 +5611,14 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       productThumbs.innerHTML = palette
         .map((color) => `<div class="card" style="height:70px;background:${color};"></div>`)
         .join("");
+    };
+
+    const handleImageChoiceSelection = (src) => {
+      if (!src) return;
+      setImagePreferenceValue(src);
+      renderProductImage(src);
+      renderThumbnailButtons();
+      renderImageChoiceGrid();
     };
 
     const handleThumbnailImageError = (event) => {
@@ -5118,14 +5640,30 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     if (productThumbs) {
       productThumbs.addEventListener("error", handleThumbnailImageError, true);
     }
+    if (imageChoiceGrid) {
+      imageChoiceGrid.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-image]");
+        if (!button) return;
+        const src = button.dataset.image;
+        if (!src) return;
+        handleImageChoiceSelection(src);
+      });
+    }
     const refreshVariantMedia = () => {
       availableImages = buildVariantImageSources(getSelectedVariant());
       if (availableImages.length) {
-        renderProductImage(availableImages[0]);
+        const preferred =
+          selectedImagePreference && availableImages.includes(selectedImagePreference.src)
+            ? selectedImagePreference.src
+            : availableImages[0];
+        handleImageChoiceSelection(preferred);
       } else {
         showDefaultBackground();
+        renderThumbnailButtons();
+        selectedImagePreference = null;
+        updateImageChoiceStatus();
+        renderImageChoiceGrid();
       }
-      renderThumbnailButtons();
     };
     const syncVariantState = () => {
       refreshVariantMedia();
@@ -5256,9 +5794,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       if (!btn) return;
       const src = btn.dataset.src;
       if (!src) return;
-      renderProductImage(src);
-      document.querySelectorAll(".thumb").forEach((node) => node.classList.remove("active"));
-      btn.classList.add("active");
+      handleImageChoiceSelection(src);
     });
 
     const handleReviewSubmit = async (event) => {
@@ -5305,6 +5841,18 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       clearAttachmentPreview();
     };
 
+    const handleTaobaoSubmit = (event) => {
+      event.preventDefault();
+      const linkValue = (taobaoLinkInput?.value || "").trim();
+      if (!linkValue) {
+        setTaobaoFeedback("Vui lòng cung cấp link Taobao để admin đối chiếu.", true);
+        if (taobaoLinkInput) taobaoLinkInput.focus();
+        return;
+      }
+      resetTaobaoInputs();
+      setTaobaoFeedback("Link đã được chuyển tới admin. Chúng tôi sẽ phản hồi trong 24h.", false);
+    };
+
     if (reviewStarButtons.length) {
       reviewStarButtons.forEach((button) => {
         button.addEventListener("click", () =>
@@ -5334,6 +5882,67 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
     if (reviewForm) {
       reviewForm.addEventListener("submit", handleReviewSubmit);
+    }
+
+    if (taobaoFilesInput) {
+      taobaoFilesInput.addEventListener("change", (event) => {
+        const files = event.target.files || [];
+        handleTaobaoFilesChange(files);
+      });
+    }
+
+    if (taobaoLinkInput) {
+      taobaoLinkInput.addEventListener("input", () => {
+        if (taobaoFormFeedback?.classList.contains("danger")) {
+          setTaobaoFeedback("");
+        }
+      });
+    }
+
+    if (taobaoLinkReset) {
+      taobaoLinkReset.addEventListener("click", () => {
+        resetTaobaoInputs();
+        setTaobaoFeedback("");
+      });
+    }
+
+    if (taobaoLinkForm) {
+      taobaoLinkForm.addEventListener("submit", handleTaobaoSubmit);
+    }
+
+    if (taobaoFileTrigger) {
+      taobaoFileTrigger.addEventListener("click", () => {
+        if (taobaoFilesInput) taobaoFilesInput.click();
+      });
+    }
+
+    if (taobaoFileDropzone) {
+      taobaoFileDropzone.addEventListener("click", () => {
+        if (taobaoFilesInput) taobaoFilesInput.click();
+      });
+      taobaoFileDropzone.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          if (taobaoFilesInput) taobaoFilesInput.click();
+        }
+      });
+      taobaoFileDropzone.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        highlightTaobaoDropzone(true);
+      });
+      ["dragleave", "drop"].forEach((name) => {
+        taobaoFileDropzone.addEventListener(name, (event) => {
+          event.preventDefault();
+          if (name === "drop") {
+            applyTaobaoDropFiles(event.dataTransfer?.files || []);
+          }
+          highlightTaobaoDropzone(false);
+        });
+      });
+      taobaoFileDropzone.addEventListener("dragenter", (event) => {
+        event.preventDefault();
+        highlightTaobaoDropzone(true);
+      });
     }
 
     const ensureVariantSelection = () => {
@@ -5368,13 +5977,19 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       const variantLabel = activeVariant?.name || "";
       const variantColor = activeVariant?.color || product.defaultColor || "";
       const normalizedColor = variantColor || "";
+      const currentImagePreference = selectedImagePreference?.src || "";
+      const imagePreferencePayload = selectedImagePreference
+        ? { ...selectedImagePreference }
+        : null;
       const existing = cart.find((item) => {
-        const entryColor = item.color || "";
+        const entryColor = item.color || product?.defaultColor || "";
+        const entryImage = item.imagePreference?.src || "";
         return (
           item.id === product.id &&
           item.size === selectedSize &&
           (item.variantId || "") === variantId &&
-          entryColor === normalizedColor
+          entryColor === normalizedColor &&
+          entryImage === currentImagePreference
         );
       });
       if (existing) {
@@ -5389,6 +6004,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           variantId,
           variantLabel,
           variantPrice: activeVariant?.price,
+          imagePreference: imagePreferencePayload,
         });
       }
       setCart(cart);
@@ -5470,6 +6086,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
             ? `<img src="${thumb}" alt="${product.name}" loading="lazy" />`
             : `<span class="cart-thumb-fallback">${fallbackLabel}</span>`;
           const colorLabel = item.color || product?.defaultColor || "";
+          const preferenceLabel = item.imagePreference?.label || "";
+          const preferenceSrc = item.imagePreference?.src || "";
           return `
             <div class="card cart-item">
               <div class="cart-thumb">${thumbMarkup}</div>
@@ -5478,6 +6096,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
                   <strong>${product.name}</strong>
                   <span class="tag">Size ${item.size}</span>
                   ${colorLabel ? `<span class="tag">Màu ${colorLabel}</span>` : ""}
+                  ${preferenceLabel ? `<span class="tag">Ảnh: ${escapeHtml(preferenceLabel)}</span>` : ""}
                   <span class="tag">${sourceLabel(item.source)}</span>
                 </div>
                 <div class="price">
@@ -5486,10 +6105,10 @@ const computeTotals = (order, settings, products, overrides = {}) => {
                   <span>VND ${formatNumber(price.vnd)}</span>
                 </div>
                 <div class="segment">
-                  <button class="btn ghost small" data-action="dec" data-id="${item.id}" data-size="${item.size}" data-color="${colorLabel}">-</button>
+                  <button class="btn ghost small" data-action="dec" data-id="${item.id}" data-size="${item.size}" data-color="${colorLabel}" data-image="${escapeHtml(preferenceSrc)}">-</button>
                   <span>${item.qty}</span>
-                  <button class="btn ghost small" data-action="inc" data-id="${item.id}" data-size="${item.size}" data-color="${colorLabel}">+</button>
-                  <button class="btn ghost small" data-action="remove" data-id="${item.id}" data-size="${item.size}" data-color="${colorLabel}">Xoá</button>
+                  <button class="btn ghost small" data-action="inc" data-id="${item.id}" data-size="${item.size}" data-color="${colorLabel}" data-image="${escapeHtml(preferenceSrc)}">+</button>
+                  <button class="btn ghost small" data-action="remove" data-id="${item.id}" data-size="${item.size}" data-color="${colorLabel}" data-image="${escapeHtml(preferenceSrc)}">Xoá</button>
                 </div>
               </div>
             </div>
@@ -5520,12 +6139,19 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       const id = event.target.dataset.id;
       const size = event.target.dataset.size;
       const color = event.target.dataset.color || "";
+      const imageSrc = event.target.dataset.image || "";
       const cart = getCart();
       const products = getProducts();
       const item = cart.find((entry) => {
         const product = products.find((prod) => prod.id === entry.id);
         const entryColor = entry.color || product?.defaultColor || "";
-        return entry.id === id && entry.size === size && entryColor === color;
+        const entryImage = entry.imagePreference?.src || "";
+        return (
+          entry.id === id &&
+          entry.size === size &&
+          entryColor === color &&
+          entryImage === imageSrc
+        );
       });
       if (!item) return;
       if (action === "inc") item.qty += 1;
@@ -5546,7 +6172,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
   const normalizeItemKey = (item) => {
     const color = (item.color || "").trim();
     const size = (item.size || "").trim();
-    return `${item.id || "unknown"}|${size}|${color}`;
+    const imageKey = (item.imagePreference?.src || "").trim();
+    return `${item.id || "unknown"}|${size}|${color}|${imageKey}`;
   };
 
   const mergeOrderItems = (existingItems = [], incomingItems = []) => {
@@ -5677,6 +6304,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           image: images[0] || product?.image || "",
           images,
           productUrl: product?.sourceUrl || product?.link || "",
+          imagePreference: item.imagePreference,
         };
       });
       const ordersList = getOrders();
@@ -7884,6 +8512,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const productDefaultSize = document.getElementById("productDefaultSize");
     const productImage = document.getElementById("productImage");
     const productImages = document.getElementById("productImages");
+    const productVideo = document.getElementById("productVideo");
     const productImagePreview = document.getElementById("productImagePreview");
     const productHidden = document.getElementById("productHidden");
     const addProduct = document.getElementById("addProduct");
@@ -7905,6 +8534,9 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const importPreviewQualityTag = document.getElementById("importPreviewQualityTag");
     const importPreviewRatingTag = document.getElementById("importPreviewRatingTag");
     const importPreviewDesc = document.getElementById("importPreviewDesc");
+    const importPreviewImageSizes = document.getElementById("importPreviewImageSizes");
+    const importPreviewImageSizeList = importPreviewImageSizes?.querySelector(".image-size-list");
+    const importPreviewVideoPlayer = document.getElementById("importPreviewVideoPlayer");
 
     const quickEntryInputs = [
       productName,
@@ -7972,6 +8604,91 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       const thumbs = images.slice(0, 3).map((src) => `<img src="${src}" alt="" />`).join("");
       const count = images.length > 3 ? `<span class="tag">+${images.length - 3}</span>` : "";
       productImagePreview.innerHTML = `<div class="image-stack">${thumbs}${count}</div>`;
+    };
+
+    let importMeasurementToken = 0;
+    const renderImportPreviewImageSizes = (measurements) => {
+      if (!importPreviewImageSizeList) return;
+      if (!Array.isArray(measurements) || !measurements.length) {
+        importPreviewImageSizeList.innerHTML =
+          '<span class="helper small">Chưa đo kích thước ảnh.</span>';
+        return;
+      }
+      importPreviewImageSizeList.innerHTML = measurements
+        .map(
+          (entry) => `
+            <div class="image-size-row">
+              <span>${escapeHtml(entry.label || "Ảnh")}</span>
+              <span>${entry.width || "-"}×${entry.height || "-"}</span>
+            </div>
+          `
+        )
+        .join("");
+    };
+
+    const requestImportImageMeasurements = (sources) => {
+      if (!importPreviewImageSizeList) return;
+      const list = (Array.isArray(sources) ? sources : [])
+        .map((value) => ensureUrl(value) || value)
+        .filter(Boolean);
+      if (!list.length) {
+        renderImportPreviewImageSizes([]);
+        return;
+      }
+      importPreviewImageSizeList.innerHTML =
+        '<span class="helper small">Đang đo kích thước ảnh...</span>';
+      const token = ++importMeasurementToken;
+      measureImageSizes(list, { limit: 6 }).then((measurements) => {
+        if (token !== importMeasurementToken) return;
+        renderImportPreviewImageSizes(measurements);
+      });
+    };
+
+    let importPreviewVideoHints = [];
+    const setImportPreviewVideoSources = (sources) => {
+      if (!importPreviewVideoPlayer) return;
+      const list = Array.from(
+        new Set((Array.isArray(sources) ? sources : []).filter(Boolean))
+      );
+      if (!list.length) {
+        importPreviewVideoPlayer.innerHTML =
+          "<span class=\"helper small\">Chưa có video.</span>";
+        return;
+      }
+      const safeUrl = escapeHtml(list[0]);
+      importPreviewVideoPlayer.innerHTML = `
+        <video controls muted playsinline preload="metadata">
+          <source src="${safeUrl}" />
+        </video>
+      `;
+    };
+
+    const refreshImportPreviewVideo = () => {
+      const manual = productVideo?.value.trim();
+      const sources = manual ? [manual, ...importPreviewVideoHints] : [...importPreviewVideoHints];
+      setImportPreviewVideoSources(sources);
+    };
+
+    const updateImportPreviewVideoHints = (sources) => {
+      importPreviewVideoHints = Array.from(
+        new Set((Array.isArray(sources) ? sources : []).filter(Boolean))
+      );
+      refreshImportPreviewVideo();
+    };
+
+    const loadVideoHintsForUrl = async (url) => {
+      if (!url) return;
+      try {
+        const hints = await fetchVideoHintsFromLink(url);
+        if (!hints.length) return;
+        updateImportPreviewVideoHints(hints);
+        if (productVideo && !productVideo.value.trim()) {
+          productVideo.value = hints[0];
+          refreshImportPreviewVideo();
+        }
+      } catch (error) {
+        console.warn("Không lấy được video:", error);
+      }
     };
 
     const sanitizePaletteValue = (value) => cleanText(value || "");
@@ -8139,6 +8856,23 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         importPreviewDesc.textContent = descPreview.snippet;
         importPreviewDesc.title = descPreview.full;
       }
+      const previewImages =
+        Array.isArray(payload.images) && payload.images.length ? payload.images : [];
+      const imageSources = previewImages.length
+        ? previewImages
+        : payload.image
+        ? [payload.image]
+        : [];
+      requestImportImageMeasurements(imageSources);
+      const videoSources = [];
+      if (payload.video) videoSources.push(payload.video);
+      if (payload.videoUrl) videoSources.push(payload.videoUrl);
+      if (Array.isArray(payload.videos)) videoSources.push(...payload.videos);
+      if (videoSources.length) {
+        updateImportPreviewVideoHints(videoSources);
+      } else {
+        refreshImportPreviewVideo();
+      }
       renderImportPreviewColorChips(colorList);
       if (importPreviewNote) {
         importPreviewNote.textContent =
@@ -8173,6 +8907,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         importPreviewDesc.title = "";
       }
       renderImportPreviewColorChips([]);
+      renderImportPreviewImageSizes([]);
+      updateImportPreviewVideoHints([]);
       if (importPreviewNote) {
         importPreviewNote.textContent = "Kết quả sẽ hiển thị sau khi import.";
       }
@@ -9280,6 +10016,59 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       return urls;
     };
 
+    const describeImageLabel = (src, index = 0) => {
+      const text = extractTextFromUrl(src);
+      const colorHint = guessColorFromText(text);
+      if (colorHint) return `Màu ${colorHint}`;
+      return `Ảnh ${index + 1}`;
+    };
+
+    const measureImageDimensions = (src, timeoutDuration = 6000) =>
+      new Promise((resolve) => {
+        if (!src || typeof window === "undefined" || typeof window.Image === "undefined") {
+          resolve(null);
+          return;
+        }
+        const image = new window.Image();
+        let settled = false;
+        const finalize = (result) => {
+          if (settled) return;
+          settled = true;
+          resolve(result);
+        };
+        image.onload = () => finalize({ width: image.naturalWidth, height: image.naturalHeight });
+        image.onerror = () => finalize(null);
+        image.decoding = "async";
+        image.src = src;
+        setTimeout(() => finalize(null), timeoutDuration);
+      });
+
+    const measureImageSizes = async (urls, options = {}) => {
+      const { limit = 5, timeout = 6000 } = options;
+      if (!Array.isArray(urls) || !urls.length || typeof window === "undefined") return [];
+      const unique = Array.from(
+        new Set(
+          urls
+            .map((value) => ensureUrl(value) || value)
+            .filter((value) => value)
+            .slice(0, limit)
+        )
+      );
+      if (!unique.length) return [];
+      const tasks = unique.map(async (value, index) => {
+        const measurement = await measureImageDimensions(value, timeout);
+        if (!measurement) return null;
+        return {
+          src: value,
+          width: measurement.width,
+          height: measurement.height,
+          label: describeImageLabel(value, index),
+        };
+      });
+      const results = await Promise.all(tasks);
+      return results.filter(Boolean);
+    };
+
     const QUALITY_RULES = {
       minRating: 4,
       minPositiveRate: 0.8,
@@ -9609,6 +10398,51 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       return { html, blocked };
     };
 
+    const resolveRelativeUrl = (raw, base) => {
+      if (!raw) return "";
+      try {
+        return new URL(raw, base || undefined).toString();
+      } catch (error) {
+        return ensureUrl(raw);
+      }
+    };
+
+    const extractVideoHintsFromHtml = (html, baseUrl) => {
+      if (!html) return [];
+      const sources = new Set();
+      const addSource = (value) => {
+        const resolved = resolveRelativeUrl(value, baseUrl);
+        if (resolved) sources.add(resolved);
+      };
+      const metaRegex =
+        /<meta[^>]*(?:property|name)=["'](?:og:video(?::[a-z]+)?|og:video:url|og:video:secure_url|twitter:player:stream|twitter:player)["'][^>]*content=["']([^"']+)["']/gi;
+      let match;
+      while ((match = metaRegex.exec(html))) {
+        addSource(match[1]);
+      }
+      const videoTagRegex = /<video[^>]*src=["']([^"']+)["']/gi;
+      while ((match = videoTagRegex.exec(html))) {
+        addSource(match[1]);
+      }
+      const sourceTagRegex = /<source[^>]*src=["']([^"']+)["']/gi;
+      while ((match = sourceTagRegex.exec(html))) {
+        addSource(match[1]);
+      }
+      return Array.from(sources);
+    };
+
+    const fetchVideoHintsFromLink = async (url) => {
+      if (!url) return [];
+      try {
+        const { html, blocked } = await fetchProductHtml(url);
+        if (blocked) return [];
+        return extractVideoHintsFromHtml(html, url);
+      } catch (error) {
+        console.warn("Video extraction failed:", error);
+        return [];
+      }
+    };
+
     const fetchImportedProduct = async (url, endpoint, cookie) => {
       const payload = { url };
       if (cookie) payload.cookie = cookie;
@@ -9660,6 +10494,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       productSizes.value = "";
       if (productImage) productImage.value = "";
       if (productImages) productImages.value = "";
+      if (productVideo) productVideo.value = "";
       if (productColor) productColor.value = "";
       if (productDefaultSize) productDefaultSize.value = "";
       if (productDefaultStock) productDefaultStock.value = "3";
@@ -9687,6 +10522,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       productSizes.value = [...(product.sizesText || []), ...(product.sizesNum || [])].join(",");
       if (productImage) productImage.value = product.image || "";
       if (productImages) productImages.value = (product.images || []).join(", ");
+      if (productVideo) productVideo.value = product.video || product.videoUrl || "";
       if (productHidden) productHidden.checked = Boolean(product.hidden);
       importedImages = getProductImages(product);
       importedMeta = {
@@ -9710,6 +10546,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           ),
           colors: product.palette || [],
           images: product.images || [],
+          video: product.video || product.videoUrl || "",
+          videos: Array.isArray(product.videoHints) ? product.videoHints : [],
         },
         "Đang hiển thị dữ liệu sản phẩm"
       );
@@ -9852,7 +10690,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
     const getFilteredProducts = () => {
       const query = productSearch.value.trim().toLowerCase();
-      let items = getVisibleProducts();
+      let items = getProducts();
       if (query) {
         items = items.filter((product) => {
           const tagsText = (product.tags || []).join(" ").toLowerCase();
@@ -9893,15 +10731,22 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           const priced = applyProductFee(product.basePrice);
           const stockValues = getProductStockValues(product);
           const minStock = stockValues.length ? Math.min(...stockValues) : null;
-          const stockTag = minStock !== null
-            ? `<span class="tag">Tồn ${formatNumber(minStock)}</span>`
-            : `<span class="tag warning">Kho chưa cập nhật</span>`;
-          const lowStockTag = isProductLowStock(product)
-            ? `<span class="tag warning">Low stock</span>`
-            : "";
+          const stockTag =
+            minStock !== null
+              ? `<span class="tag">Tồn ${formatNumber(minStock)}</span>`
+              : `<span class="tag warning">Kho chưa cập nhật</span>`;
+          const lowStockTag = isProductLowStock(product) ? `<span class="tag warning">Low stock</span>` : "";
           const updatedTag = product.updatedAt
             ? `<span class="tag">Cập nhật ${formatDateTime(product.updatedAt)}</span>`
             : "";
+          const imageSizes = Array.isArray(product.imageSizes) ? product.imageSizes : [];
+          const imageSizeTag =
+            imageSizes.length && imageSizes[0]?.width && imageSizes[0]?.height
+              ? `<span class="tag">Ảnh ${imageSizes.length} · ${imageSizes[0].width}×${imageSizes[0].height}</span>`
+              : imageSizes.length
+              ? `<span class="tag">Ảnh ${imageSizes.length}</span>`
+              : "";
+          const videoTag = product.video || product.videoUrl ? `<span class="tag">Video</span>` : "";
           return `
             <div class="admin-item ${activeProductId === product.id ? "active" : ""}" data-product-id="${product.id}">
               <div class="admin-item-thumb">${
@@ -9919,6 +10764,8 @@ const computeTotals = (order, settings, products, overrides = {}) => {
                   ${lowStockTag}
                   ${stockTag}
                   ${updatedTag}
+                  ${imageSizeTag}
+                  ${videoTag}
                 </div>
               </div>
               <div class="admin-item-actions">
@@ -9927,11 +10774,11 @@ const computeTotals = (order, settings, products, overrides = {}) => {
                   product.hidden ? "Hiện" : "Ẩn"
                 }</button>
                 <button class="btn ghost small" data-action="remove" type="button">Xoá</button>
+              </div>
             </div>
-          </div>
-        `;
-      })
-      .join("");
+          `;
+        })
+        .join("");
       refreshAdminInsights();
     };
 
@@ -9992,14 +10839,24 @@ const computeTotals = (order, settings, products, overrides = {}) => {
 
     if (productImage) {
       renderImagePreview(productImage.value.trim());
+      requestImportImageMeasurements(collectImageInputs());
       productImage.addEventListener("input", () => {
-        renderImagePreview(productImage.value.trim());
+        const value = productImage.value.trim();
+        renderImagePreview(value);
+        requestImportImageMeasurements(collectImageInputs());
       });
     }
 
     if (productImages) {
       productImages.addEventListener("input", () => {
         renderImagePreview(productImage ? productImage.value.trim() : "");
+        requestImportImageMeasurements(collectImageInputs());
+      });
+    }
+
+    if (productVideo) {
+      productVideo.addEventListener("input", () => {
+        refreshImportPreviewVideo();
       });
     }
 
@@ -10038,6 +10895,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         if (productLink) productLink.value = normalized;
         if (autoOpen) autoOpen.href = hintSourceUrl || normalized;
         setAutoHint("Đang phân tích link...");
+        updateImportPreviewVideoHints([]);
 
         const source = inferSourceFromUrl(normalized);
         if (productSource) productSource.value = source;
@@ -10085,6 +10943,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
             }
             const note = `${noteParts.join(" ")} `;
             applyExtractedData(payload, { note, qualityGate: false });
+            loadVideoHintsForUrl(normalized);
             return;
           } catch (error) {
             setAutoHint("Crawler không phản hồi, thử phương án dự phòng...");
@@ -10133,6 +10992,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         const note = urlHints.price && extracted.price ? "Đã lấy giá từ URL. " : "";
         const errorText = fetchError ? `${fetchError} ` : "";
         applyExtractedData(extracted, { note: `${errorText}${note}`, qualityGate: false });
+        loadVideoHintsForUrl(normalized);
       });
     }
 
@@ -10221,6 +11081,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           if (urlHints.price) extracted.price = urlHints.price;
         }
         applyExtractedData(extracted, { note: "Đã phân tích nội dung dán. ", qualityGate: false });
+        if (baseUrl) loadVideoHintsForUrl(baseUrl);
       });
     }
 
@@ -10564,16 +11425,18 @@ const computeTotals = (order, settings, products, overrides = {}) => {
             continue;
           }
           setBulkHint(`Đang lưu ảnh ${index + 1}/${products.length}...`);
-          try {
-            const cachedImages = await cacheProductImages(images, settings);
-            const finalImages = cachedImages.length ? cachedImages : images;
-            const image = finalImages[0] || product.image || "";
-            products[index] = {
-              ...product,
-              image,
-              images: finalImages,
-              updatedAt: Date.now(),
-            };
+        try {
+          const cachedImages = await cacheProductImages(images, settings);
+          const finalImages = cachedImages.length ? cachedImages : images;
+          const image = finalImages[0] || product.image || "";
+          const measuredSizes = await measureImageSizes(finalImages);
+          products[index] = {
+            ...product,
+            image,
+            images: finalImages,
+            imageSizes: measuredSizes,
+            updatedAt: Date.now(),
+          };
             cachedCount += 1;
           } catch (error) {
             failed += 1;
@@ -10605,9 +11468,11 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         const finalImages = cachedImages.length ? cachedImages : images;
         const image = finalImages[0] || (productImage ? productImage.value.trim() : "");
         const sourceUrl = productLink ? productLink.value.trim() : "";
+        const videoUrl = productVideo?.value.trim() || "";
         const meta = importedMeta || {};
         const stockValue = getDefaultStockValue();
         const palette = getProductPalette();
+        const measuredSizes = await measureImageSizes(finalImages);
         products.unshift({
           id: nextId,
           name,
@@ -10634,6 +11499,9 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           positiveRate: meta.positiveRate ?? null,
           soldCount: meta.soldCount ?? null,
           hidden: productHidden?.checked || false,
+          video: videoUrl,
+          videoHints: Array.from(importPreviewVideoHints),
+          imageSizes: measuredSizes,
           createdAt: now,
           updatedAt: now,
         });
@@ -10675,21 +11543,23 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         const pendingImages = imagesInput.length ? imagesInput : existingImages;
         const cachedImages = await cacheProductImages(pendingImages, getSettings());
         const finalImages = cachedImages.length ? cachedImages : pendingImages;
+        const measuredSizes = await measureImageSizes(finalImages);
         const sourceUrl = productLink ? productLink.value.trim() : products[index].sourceUrl || "";
         const meta = importedMeta || {};
         const palette = getProductPalette();
+        const videoUrl = productVideo?.value.trim() || products[index].video || products[index].videoUrl || "";
         products[index] = {
           ...products[index],
           name,
           desc: productDesc.value.trim() || products[index].desc || "",
           basePrice: price,
-        category: productCategory.value,
-        source: productSource.value,
-        sourceUrl,
-        tags: productTags.value
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean),
+          category: productCategory.value,
+          source: productSource.value,
+          sourceUrl,
+          tags: productTags.value
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean),
           sizesText,
           sizesNum,
           defaultColor: productColor ? productColor.value.trim() : products[index].defaultColor || "",
@@ -10709,6 +11579,9 @@ const computeTotals = (order, settings, products, overrides = {}) => {
           hidden: productHidden?.checked || false,
           palette,
           defaultStock,
+          video: videoUrl,
+          videoHints: Array.from(importPreviewVideoHints),
+          imageSizes: measuredSizes,
           updatedAt: Date.now(),
         };
         setProducts(products);
@@ -10723,7 +11596,88 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       resetProduct.addEventListener("click", resetForm);
     }
 
+    const requestListContainer = document.getElementById("adminRequestList");
+    const renderCustomerRequests = () => {
+      if (!requestListContainer) return;
+      const entries = getCustomerRequests();
+      if (!entries.length) {
+        requestListContainer.innerHTML =
+          '<p class="helper small">Chưa có yêu cầu nào từ khách hàng.</p>';
+        return;
+      }
+      requestListContainer.innerHTML = entries
+        .map((entry) => {
+          const timestamp = formatDateTime(entry.createdAt);
+          const fbLink = entry.facebook
+            ? `<a href="${escapeHtml(entry.facebook)}" target="_blank" rel="noopener">Facebook</a>`
+            : "";
+          const notes = [
+            entry.sizeNote ? `<span>Size: ${escapeHtml(entry.sizeNote)}</span>` : "",
+            entry.colorNote ? `<span>Màu: ${escapeHtml(entry.colorNote)}</span>` : "",
+            entry.otherNote ? `<span>Yêu cầu khác: ${escapeHtml(entry.otherNote)}</span>` : "",
+          ]
+            .filter(Boolean)
+            .join("");
+          const imageHints =
+            entry.imageLinks && entry.imageLinks.length
+              ? entry.imageLinks
+                  .map(
+                    (link) =>
+                      `<a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(
+                        link
+                      )}</a>`
+                  )
+                  .join(", ")
+              : "";
+          const linkMarkup = (entry.links || []).length
+            ? entry.links
+                .map((link) => {
+                  const preview = link.preview || {};
+                  const safeUrl = escapeHtml(link.url);
+                  const title = escapeHtml(preview.name || link.url);
+                  const priceLine = preview.price ? `<span>Giá: ${escapeHtml(preview.price)}</span>` : "";
+                  const description = preview.desc
+                    ? `<span>${escapeHtml(preview.desc)}</span>`
+                    : "";
+                  const leftBlock = preview.image
+                    ? `<img src="${escapeHtml(preview.image)}" alt="" loading="lazy" />`
+                    : `<span class="link-placeholder">Ảnh trống</span>`;
+                  return `
+                    <div class="admin-request-link">
+                      ${leftBlock}
+                      <div class="link-meta">
+                        <a href="${safeUrl}" target="_blank" rel="noopener">${title}</a>
+                        ${priceLine}
+                        ${description}
+                      </div>
+                    </div>
+                  `;
+                })
+                .join("")
+            : '<p class="helper small">Chưa có link kèm thông tin.</p>';
+          return `
+            <article class="admin-request-card">
+              <header>
+                <strong>${escapeHtml(entry.name || "Khách hàng")}</strong>
+                <span class="tag">${timestamp}</span>
+              </header>
+              <div class="request-meta">
+                ${fbLink}
+                ${notes}
+              </div>
+              ${imageHints ? `<div class="request-note">Ảnh tham khảo: ${imageHints}</div>` : ""}
+              <div class="admin-request-links">
+                ${linkMarkup}
+              </div>
+            </article>
+          `;
+        })
+        .join("");
+    };
+    registerSyncListener(renderCustomerRequests);
+
     renderProductList();
+    renderCustomerRequests();
     if (highlightProductId) {
       const product = getProducts().find((entry) => entry.id === highlightProductId);
       if (product) fillProductForm(product);

@@ -174,16 +174,28 @@
                 <span class="tag" id="importPreviewQualityTag">Chưa có đánh giá</span>
                 <span class="tag import-preview-rating" id="importPreviewRatingTag">Chưa có đánh giá</span>
               </div>
-              <div class="admin-import-desc">
-                <span class="helper small">Mô tả gợi ý</span>
-                <p class="helper small" id="importPreviewDesc">Chưa có mô tả từ link.</p>
-              </div>
-              <div class="admin-import-color-preview" id="importPreviewColorChips">
-                <span class="helper small">Chưa có màu sắc gợi ý.</span>
-              </div>
-              <div class="admin-import-preview-images" id="importPreviewImages"></div>
-              <p class="helper small" id="importPreviewNote">Kết quả sẽ hiển thị sau khi import.</p>
+            <div class="admin-import-desc">
+              <span class="helper small">Mô tả gợi ý</span>
+              <p class="helper small" id="importPreviewDesc">Chưa có mô tả từ link.</p>
             </div>
+            <div class="admin-import-image-sizes" id="importPreviewImageSizes">
+              <span class="helper small">Kích thước ảnh</span>
+              <div class="image-size-list">
+                <span class="helper small">Chưa đo kích thước ảnh.</span>
+              </div>
+            </div>
+            <div class="admin-import-video" id="importPreviewVideo">
+              <span class="helper small">Video gợi ý</span>
+              <div class="admin-import-video-player" id="importPreviewVideoPlayer">
+                <span class="helper small">Chưa có video.</span>
+              </div>
+            </div>
+            <div class="admin-import-color-preview" id="importPreviewColorChips">
+              <span class="helper small">Chưa có màu sắc gợi ý.</span>
+            </div>
+            <div class="admin-import-preview-images" id="importPreviewImages"></div>
+            <p class="helper small" id="importPreviewNote">Kết quả sẽ hiển thị sau khi import.</p>
+          </div>
             <div class="admin-import-helper">
               <h4>Quy trình lấy dữ liệu</h4>
               <ol>
@@ -272,6 +284,10 @@
                 ></textarea>
               </div>
               <div class="field">
+                <label for="productVideo">Video sản phẩm (URL)</label>
+                <input id="productVideo" type="url" placeholder="https://sample.mp4" />
+              </div>
+              <div class="field">
                 <label>Xem trước ảnh</label>
                 <div class="image-preview" id="productImagePreview"></div>
               </div>
@@ -287,6 +303,15 @@
             </div>
           </div>
         </div>
+        <section class="section admin-requests-section">
+          <div class="section-header">
+            <h2>Yêu cầu order khách hàng</h2>
+            <span class="badge">Link & yêu cầu</span>
+          </div>
+          <div class="card admin-request-list soft" id="adminRequestList">
+            <p class="helper small">Chưa có yêu cầu nào.</p>
+          </div>
+        </section>
       </section>
     </main>
   </body>

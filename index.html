@@ -52,12 +52,134 @@
         </div>
       </section>
 
-      <section class="featured-products">
+      <section class="section link-request-section" id="homeRequestSection">
         <div class="section-header">
-          <h2>Sản phẩm nổi bật</h2>
-          <span class="badge">Compact grid</span>
+          <h2>Gửi link Taobao cho admin</h2>
+          <span class="badge">Hỗ trợ order riêng</span>
         </div>
-        <div class="product-grid" id="featuredGrid" data-view="compact"></div>
+        <div class="link-request-layout">
+          <article class="card request-info-card">
+            <div class="info-top">
+              <h3>Gửi yêu cầu nhanh gọn</h3>
+              <p class="helper small">
+                Chỉ cần link Taobao, size/màu và ảnh minh hoạ, admin sẽ kiểm tra ngay và gửi báo giá ship trong vài phút.
+              </p>
+            </div>
+            <ul class="request-guidelines">
+              <li>🔗 Dán mỗi link trên dòng mới để hệ thống tự động tách và lưu lịch sử.</li>
+              <li>🎯 Ghi rõ size/màu hoặc mood ảnh để admin chuẩn bị sẵn phương án.</li>
+              <li>📷 Gửi thêm ảnh mẫu nếu cần, đội ngũ sẽ kết nối hình ảnh với sản phẩm tương ứng.</li>
+            </ul>
+            <div class="request-stats">
+              <div class="request-stat">
+                <strong>7-9 phút</strong>
+                <span>Thời gian phản hồi trung bình</span>
+              </div>
+              <div class="request-stat">
+                <strong>100%</strong>
+                <span>Admin chat lại nếu cần bổ sung</span>
+              </div>
+              <div class="request-stat">
+                <strong>1 đơn</strong>
+                <span>Chuẩn bị link + ảnh + yêu cầu rõ ràng</span>
+              </div>
+            </div>
+          </article>
+          <div class="card request-card request-content-card">
+            <div class="request-form-grid">
+              <div class="request-row">
+                <div class="field">
+                  <label for="requesterName">Tên khách hàng</label>
+                  <input id="requesterName" type="text" placeholder="Nguyễn Văn A" />
+                </div>
+                <div class="field">
+                  <label for="requesterFb">Link Facebook</label>
+                  <input id="requesterFb" type="url" placeholder="https://facebook.com/..." />
+                </div>
+              </div>
+              <div class="request-row">
+                <div class="field">
+                  <label for="requestSize">Yêu cầu kích cỡ</label>
+                  <textarea
+                    id="requestSize"
+                    rows="2"
+                    placeholder="Size 38-39 hoặc form rộng, không chật..."
+                  ></textarea>
+                </div>
+                <div class="field">
+                  <label for="requestColor">Yêu cầu màu sắc / ảnh mẫu</label>
+                  <textarea
+                    id="requestColor"
+                    rows="2"
+                    placeholder="Ví dụ: ưu tiên xanh pastel, ảnh mẫu dưới chân, hoặc ghi rõ màu cần."
+                  ></textarea>
+                </div>
+              </div>
+              <div class="field">
+                <label for="requestOther">Yêu cầu khác</label>
+                <textarea
+                  id="requestOther"
+                  rows="2"
+                  placeholder="Ví dụ: Gửi nhanh trong tuần này, kiểm tra kho trước khi báo giá..."
+                ></textarea>
+              </div>
+            </div>
+            <div class="request-link-grid">
+              <div class="link-input-panel">
+                <div class="field">
+                  <label for="requestLinkInput">Link Taobao (nhập từng link)</label>
+                  <div class="segment request-link-row">
+                    <input
+                      id="requestLinkInput"
+                      type="url"
+                      placeholder="https://item.taobao.com/item.htm?id=..."
+                    />
+                    <button id="requestAddLink" class="btn ghost small" type="button">Thêm link</button>
+                  </div>
+                  <p class="helper small">
+                    Nhấn Thêm link để đưa vào danh sách. Tự động chia từng link riêng để admin kiểm tra.
+                  </p>
+                </div>
+                <div class="field">
+                  <label for="requestBulkLinks">Danh sách link (mỗi dòng 1 link)</label>
+                  <textarea
+                    id="requestBulkLinks"
+                    rows="3"
+                    placeholder="https://item.taobao.com/item.htm?id=...
+https://detail.tmall.com/item.htm?id=..."
+                  ></textarea>
+                  <div class="segment request-link-row">
+                    <button id="requestAddMultiple" class="btn ghost small" type="button">Thêm nhiều link</button>
+                    <button id="requestClearLinks" class="btn ghost small" type="button">Xoá hết</button>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="requestImageLinks">Ảnh tham khảo / yêu cầu hình</label>
+                  <textarea
+                    id="requestImageLinks"
+                    rows="2"
+                    placeholder="Danh sách link ảnh (mỗi đường dẫn trên 1 dòng) hoặc ghi lại chi tiết màu/chi tiết ảnh."
+                  ></textarea>
+                </div>
+              </div>
+              <section class="card link-preview-panel">
+                <div class="link-preview-heading">
+                  <h4>Danh sách link đã lưu</h4>
+                  <span class="helper small">Danh sách sẽ cập nhật ngay sau khi thêm từng link.</span>
+                </div>
+                <div class="link-list" id="requestLinksList">
+                  <span class="helper small">Chưa có link nào.</span>
+                </div>
+              </section>
+            </div>
+            <div class="segment request-actions">
+              <button id="submitRequest" class="btn primary" type="button">Gửi yêu cầu cho admin</button>
+              <span class="helper small" id="requestFeedback">
+                Admin sẽ phản hồi qua Facebook trong thời gian sớm nhất.
+              </span>
+            </div>
+          </div>
+        </div>
       </section>
 
     </main>

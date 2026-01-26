@@ -45,10 +45,17 @@
       <section class="section reveal">
         <div class="product-detail-grid">
           <div class="product-visual">
-            <div class="product-visual-inner card" id="productMain" style="height: 320px">
-              <div class="product-image-skeleton" id="productImageSkeleton"></div>
+            <div class="product-visual-inner-wrapper">
+              <div class="product-visual-inner card" id="productMain" style="height: 320px">
+                <div class="product-image-skeleton" id="productImageSkeleton"></div>
+              </div>
+              <div
+                class="product-thumb-slider"
+                id="productThumbs"
+                role="group"
+                aria-label="Ảnh phụ sản phẩm"
+              ></div>
             </div>
-            <div class="grid-3" id="productThumbs"></div>
             <div class="product-depth-layer"></div>
           </div>
           <div class="product-detail-meta">
@@ -56,6 +63,14 @@
               <div class="order-panel">
                 <div class="order-tags" id="productTags"></div>
                 <div class="order-defaults" id="productDefaults"></div>
+                <div class="order-image-choice card" id="productImageChoice">
+                  <div class="order-image-choice-heading">
+                    <span>Ảnh mẫu</span>
+                    <span class="helper tiny">Chọn ảnh admin gắn liền sản phẩm</span>
+                  </div>
+                  <div class="image-choice-grid compact" id="productImageChoiceGrid"></div>
+                  <p class="helper tiny" id="productImageChoiceStatus">Chưa chọn ảnh mẫu.</p>
+                </div>
                 <div class="order-stock">
                   <span class="status" id="productStock"></span>
                 </div>
@@ -202,6 +217,76 @@
             <div class="review-form-actions">
               <button class="btn primary" type="submit">Gửi đánh giá</button>
               <span class="review-form-feedback helper small" id="reviewFormFeedback"></span>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-header">
+          <h2>Gửi link Taobao cho admin</h2>
+          <div class="line"></div>
+          <p class="helper small">
+            Gửi nhanh đường link và ảnh gợi ý, admin sẽ hỗ trợ báo giá chính xác cho bạn.
+          </p>
+        </div>
+        <div class="card link-request-card">
+          <form id="taobaoLinkForm" class="link-request-form">
+            <div class="link-request-group">
+              <div class="field">
+                <label for="taobaoLinkInput">Link Taobao</label>
+                <input
+                  type="url"
+                  id="taobaoLinkInput"
+                  name="taobaoLink"
+                  placeholder="https://item.taobao.com/item.htm?id=..."
+                  required
+                />
+              </div>
+              <div class="field">
+                <label for="taobaoDescription">Mô tả riêng cho admin</label>
+                <textarea
+                  id="taobaoDescription"
+                  name="taobaoDescription"
+                  rows="3"
+                  placeholder="Ghi rõ màu, điểm khác biệt, link gốc muốn tham khảo..."
+                ></textarea>
+              </div>
+              <div class="field">
+                <label for="taobaoNote">Ghi chú thêm (tùy chọn)</label>
+                <textarea
+                  id="taobaoNote"
+                  name="taobaoNote"
+                  rows="2"
+                  placeholder="Thông tin bổ sung như ưu tiên hàng sẵn kho, thời gian cần..."
+                ></textarea>
+              </div>
+            </div>
+            <div class="link-request-group link-request-attachments">
+              <div class="field taobao-file-field">
+                <label for="taobaoFiles">Ảnh minh họa (gửi từ máy)</label>
+                <p class="helper tiny">
+                  Thả ảnh hoặc nhấn nút để chọn trực tiếp từ máy của bạn (JPG/PNG, tối đa 4 ảnh).
+                </p>
+                <div class="link-request-dropzone" id="taobaoFileDropzone" tabindex="0">
+                  <span>Kéo/thả ảnh hoặc chọn từ máy</span>
+                  <button class="btn ghost tiny" type="button" data-taobao-trigger>Chọn file</button>
+                </div>
+                <input
+                  type="file"
+                  id="taobaoFiles"
+                  name="taobaoFiles"
+                  accept="image/*"
+                  multiple
+                  class="link-request-file-input"
+                />
+                <div class="link-request-preview" id="taobaoFilePreview"></div>
+              </div>
+            </div>
+            <div class="link-request-actions">
+              <button class="btn primary" type="submit">Gửi link đến admin</button>
+              <button class="btn ghost" type="button" id="taobaoLinkReset">Xóa nội dung</button>
+              <span class="helper small link-request-feedback" id="taobaoFormFeedback"></span>
             </div>
           </form>
         </div>
