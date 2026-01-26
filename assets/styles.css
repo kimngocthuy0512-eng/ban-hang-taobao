@@ -2790,6 +2790,21 @@ textarea {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
+.product-image-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  letter-spacing: 0.3rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1;
+  background: linear-gradient(140deg, rgba(22, 26, 40, 0.95), rgba(9, 15, 30, 0.95));
+  border-radius: inherit;
+}
+
 .product-image::after {
   content: "";
   position: absolute;

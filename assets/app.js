@@ -3826,19 +3826,35 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       return stripped.split("·")[0].split("·")[0];
     };
 
-    const buildProductCard = (product, settings) => {
-      const price = convertPrice(product.basePrice, settings);
-      const baseWithFee = applyProductFee(product.basePrice);
-      const wished = isWishlisted(product.id);
-      const images = getProductImages(product);
-      const heroImage = images[0] || "";
-      const highlightBadge = (product.tags && product.tags.length ? product.tags[0] : "New").toString().toUpperCase();
-      const isPriority = isPriorityProductEntry(product);
-      const displayName = escapeHtml(getDisplayName(product));
-      const imageMarkup = heroImage
-        ? `<img class="product-image-inner" src="${escapeHtml(heroImage)}" loading="eager" alt="${displayName}" />`
-        : "";
-      return `
+  const buildProductCard = (product, settings) => {
+    const price = convertPrice(product.basePrice, settings);
+    const baseWithFee = applyProductFee(product.basePrice);
+    const wished = isWishlisted(product.id);
+    const images = getProductImages(product);
+    const heroImage = images[0] || "";
+    const highlightBadge = (product.tags && product.tags.length ? product.tags[0] : "New").toString().toUpperCase();
+    const isPriority = isPriorityProductEntry(product);
+    const displayName = escapeHtml(getDisplayName(product));
+    const placeholderInitials = (() => {
+      const raw = (product.name || "").trim();
+      if (!raw) return "SP";
+      const initials = raw
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((segment) => segment[0])
+        .filter(Boolean)
+        .slice(0, 2)
+        .join("");
+      if (initials) return initials;
+      return raw.slice(0, 2);
+    })();
+    const placeholderMarkup = `<span class="product-image-placeholder">${escapeHtml(
+      placeholderInitials.toUpperCase()
+    )}</span>`;
+    const imageMarkup = heroImage
+      ? `<img class="product-image-inner" src="${escapeHtml(heroImage)}" loading="eager" alt="${displayName}" />`
+      : placeholderMarkup;
+    return `
       <article class="card product-card ${wished ? "is-wish" : ""} ${isPriority ? "is-priority" : ""}" data-product-card data-id="${product.id}" tabindex="0">
         <button class="wish-btn ${wished ? "active" : ""}" type="button" data-wish="${product.id}" aria-pressed="${wished}" aria-label="${wished ? "Bỏ lưu" : "Lưu"}">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -3856,7 +3872,7 @@ const computeTotals = (order, settings, products, overrides = {}) => {
         </div>
       </article>
     `;
-    };
+  };
 
   const renderProductGrid = (products, container, mode = "grid", append = false, nextOffset = 0) => {
     if (!container) return;
@@ -3867,20 +3883,14 @@ const computeTotals = (order, settings, products, overrides = {}) => {
       if (existingSentinel) existingSentinel.remove();
     };
 
-    if (!products.length) {
+    const visibleProducts = Array.isArray(products) ? products : [];
+    if (!visibleProducts.length) {
       removeSentinel();
       container.innerHTML = "<div class=\"card empty-state\">Không tìm thấy sản phẩm phù hợp.</div>";
       return;
     }
 
-    const availableProducts = products.filter((product) => Boolean(getProductImages(product)[0]));
-    if (!availableProducts.length) {
-      removeSentinel();
-      container.innerHTML =
-        "<div class=\"card empty-state\">Không tìm thấy sản phẩm phù hợp.</div>";
-      return;
-    }
-    const cardsHtml = availableProducts.map((product) => buildProductCard(product, settings)).join("");
+    const cardsHtml = visibleProducts.map((product) => buildProductCard(product, settings)).join("");
 
     if (append) {
       removeSentinel();
