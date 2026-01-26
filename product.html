@@ -77,6 +77,13 @@
                     <div class="segment" id="sizeNum"></div>
                   </div>
                 </div>
+                <div class="order-variants hidden" id="productVariantSelector">
+                  <div class="variant-heading">
+                    <strong>Chọn biến thể</strong>
+                    <span class="helper small">Chọn phiên bản hợp lý để cập nhật đúng giá, ảnh và hàng tồn.</span>
+                  </div>
+                  <div class="variant-options" id="productVariantList"></div>
+                </div>
                 <div class="order-actions">
                   <button class="btn primary" id="addToCart" type="button">Thêm vào giỏ</button>
                   <button class="btn secondary" id="buyNow" type="button">Mua ngay</button>
@@ -84,67 +91,119 @@
                 <p class="badge orange" id="sizeHint">Vui lòng chọn size trước khi thao tác.</p>
               </div>
             </div>
-            <div class="card product-detail-info hidden" id="productInfoCard">
+            <div class="card product-summary-card" id="productSummaryCard">
               <div class="product-detail-info-heading">
-                <h3>Thông tin chi tiết</h3>
+                <h3>Thông tin sản phẩm</h3>
               </div>
-              <div class="product-info-grid">
-                <div class="product-info-row">
-                  <span class="product-info-label">Mã sản phẩm</span>
-                  <strong class="product-info-value" id="productCodeInfo">-</strong>
+              <div class="product-summary-grid">
+                <div class="product-summary-row">
+                  <span>Mã sản phẩm</span>
+                  <strong id="productSummaryCode">-</strong>
                 </div>
-                <div class="product-info-row">
-                  <span class="product-info-label">Danh mục</span>
-                  <strong class="product-info-value" id="productCategoryInfo">Chưa phân loại</strong>
+                <div class="product-summary-row">
+                  <span>Danh mục</span>
+                  <strong id="productSummaryCategory">Chưa phân loại</strong>
                 </div>
-                <div class="product-info-row">
-                  <span class="product-info-label">Nguồn</span>
-                  <strong class="product-info-value" id="productSourceInfo">-</strong>
+                <div class="product-summary-row">
+                  <span>Nguồn</span>
+                  <strong id="productSummarySource">-</strong>
                 </div>
-                <div class="product-info-row">
-                  <span class="product-info-label">Màu mặc định</span>
-                  <strong class="product-info-value" id="productColorInfo">Chưa có màu</strong>
+                <div class="product-summary-row">
+                  <span>Size</span>
+                  <strong id="productSummarySize">Chưa có size</strong>
                 </div>
-                <div class="product-info-row">
-                  <span class="product-info-label">Size</span>
-                  <strong class="product-info-value" id="productSizeInfo">Chưa có size</strong>
-                </div>
-                <div class="product-info-row">
-                  <span class="product-info-label">Tồn kho</span>
-                  <strong class="product-info-value" id="productStockInfo">Chưa có dữ liệu</strong>
-                </div>
-                <div class="product-info-row">
-                  <span class="product-info-label">Đánh giá</span>
-                  <strong class="product-info-value" id="productRatingInfo">Chưa có đánh giá</strong>
-                </div>
-                <div class="product-info-row">
-                  <span class="product-info-label">Tỷ lệ tích cực</span>
-                  <strong class="product-info-value" id="productPositiveRateInfo">Chưa có tỷ lệ</strong>
-                </div>
-                <div class="product-info-row">
-                  <span class="product-info-label">Đã bán</span>
-                  <strong class="product-info-value" id="productSoldInfo">Chưa có số liệu</strong>
-                </div>
-                <div class="product-info-row product-info-tags">
-                  <span class="product-info-label">Tags</span>
-                  <div class="product-info-value" id="productInfoTags">
-                    <span class="helper small">Chưa có tag.</span>
-                  </div>
-                </div>
-                <div class="product-info-row product-info-link-row">
-                  <span class="product-info-label">Link gốc</span>
-                  <a
-                    class="product-info-link helper small muted"
-                    id="productSourceLink"
-                    href="#"
-                    target="_blank"
-                    rel="noopener"
-                    >Chưa có link</a
-                  >
+                <div class="product-summary-row">
+                  <span>Tồn kho</span>
+                  <strong id="productSummaryStock">Chưa có dữ liệu</strong>
                 </div>
               </div>
             </div>
+            <div class="card product-description-card" id="productDescriptionCard">
+              <div class="product-detail-info-heading">
+                <h3>Mô tả sản phẩm</h3>
+              </div>
+              <p class="helper" id="productLongDesc">
+                <span class="helper small">Đang tải thông tin mô tả...</span>
+              </p>
+              <p class="helper small variant-feedback hidden" id="variantFeedback"></p>
+              <p class="helper small description-source hidden" id="productDescriptionSource"></p>
+              <div class="desc-highlights" id="productDescHighlights">
+                <span class="tag">Chưa có điểm nổi bật</span>
+              </div>
+            </div>
           </div>
+        </div>
+      </section>
+
+      <section class="section section-reviews reveal">
+        <div class="section-header review-header">
+          <div>
+            <h2>Đánh giá &amp; Bình luận</h2>
+            <div class="line"></div>
+            <p class="helper small">Khách hàng có thể gửi cảm nhận, ảnh và video cho sản phẩm.</p>
+          </div>
+          <div class="review-header-badges">
+            <span class="badge primary" id="reviewAverageBadge">Chưa có đánh giá</span>
+            <span class="badge ghost" id="reviewCountBadge">0 lượt đánh giá</span>
+            <span class="badge ghost" id="reviewPositiveBadge">Chưa có tỷ lệ tích cực</span>
+          </div>
+        </div>
+        <div class="review-list" id="productReviewsList">
+          <div class="card review-empty">
+            <p class="helper small">Chưa có đánh giá nào. Hãy là người đầu tiên chia sẻ cảm nhận.</p>
+          </div>
+        </div>
+        <div class="card review-form-card">
+          <div class="review-form-heading">
+            <h3>Gửi đánh giá</h3>
+            <p class="helper small">Gửi ảnh, video hoặc mô tả để hỗ trợ những người khác.</p>
+          </div>
+          <form id="productReviewForm" class="review-form">
+            <div class="field">
+              <label for="reviewName">Tên (tùy chọn)</label>
+              <input type="text" id="reviewName" name="reviewName" placeholder="Tên bạn" />
+            </div>
+            <div class="field">
+              <label>Đánh giá</label>
+              <div class="rating-field">
+                <div class="review-star-rating" role="radiogroup" aria-label="Đánh giá bằng sao">
+                  <button type="button" class="star-button" data-rating-star="1" aria-label="1 sao">★</button>
+                  <button type="button" class="star-button" data-rating-star="2" aria-label="2 sao">★</button>
+                  <button type="button" class="star-button" data-rating-star="3" aria-label="3 sao">★</button>
+                  <button type="button" class="star-button" data-rating-star="4" aria-label="4 sao">★</button>
+                  <button type="button" class="star-button" data-rating-star="5" aria-label="5 sao">★</button>
+                </div>
+                <input type="hidden" id="reviewRating" name="reviewRating" value="5" />
+                <span id="reviewRatingValue">5 sao</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="reviewText">Nhận xét</label>
+              <textarea
+                id="reviewText"
+                name="reviewText"
+                rows="4"
+                placeholder="Chia sẻ cảm nhận về sản phẩm..."
+                required
+              ></textarea>
+            </div>
+            <div class="field">
+              <label for="reviewAttachments">Ảnh/Video</label>
+              <input
+                type="file"
+                id="reviewAttachments"
+                name="reviewAttachments"
+                accept="image/*,video/*"
+                multiple
+              />
+              <p class="helper small">Hỗ trợ JPG, PNG, MP4. Tối đa 5 tệp.</p>
+              <div class="review-attachment-preview" id="reviewAttachmentPreview"></div>
+            </div>
+            <div class="review-form-actions">
+              <button class="btn primary" type="submit">Gửi đánh giá</button>
+              <span class="review-form-feedback helper small" id="reviewFormFeedback"></span>
+            </div>
+          </form>
         </div>
       </section>
 

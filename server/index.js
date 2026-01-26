@@ -546,6 +546,8 @@ const sanitizeBlockedData = (data, blocked) => {
   next.ratingCount = null;
   next.positiveRate = null;
   next.soldCount = null;
+  next.colors = [];
+  next.variants = [];
   return next;
 };
 
@@ -623,6 +625,254 @@ const parseSkuSizes = (html) => {
     }
   }
   return Array.from(sizes);
+};
+
+const extractJsonValue = (html, key) => {
+  if (!html || !key) return "";
+  const regex = new RegExp(`["']${key}["']\\s*:\\s*`, "i");
+  const match = regex.exec(html);
+  if (!match) return "";
+  let index = match.index + match[0].length;
+  while (index < html.length && /\s/.test(html[index])) index += 1;
+  const startChar = html[index];
+  if (startChar !== "{" && startChar !== "[") return "";
+  let depth = 0;
+  let inString = false;
+  let stringQuote = "";
+  let escape = false;
+  for (let i = index; i < html.length; i += 1) {
+    const char = html[i];
+    if (inString) {
+      if (escape) {
+        escape = false;
+      } else if (char === "\\") {
+        escape = true;
+      } else if (char === stringQuote) {
+        inString = false;
+        stringQuote = "";
+      }
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      inString = true;
+      stringQuote = char;
+      continue;
+    }
+    if (char === "{" || char === "[") {
+      depth += 1;
+    } else if (char === "}" || char === "]") {
+      depth -= 1;
+      if (depth === 0) {
+        return html.slice(index, i + 1);
+      }
+    }
+  }
+  return "";
+};
+
+const tryParseJson = (raw) => {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    try {
+      return JSON.parse(decodeEscapedText(raw));
+    } catch (innerError) {
+      return null;
+    }
+  }
+};
+
+const parseSkuProps = (html, sourceUrl) => {
+  const raw = extractJsonValue(html, "skuProps") || extractJsonValue(html, "props");
+  const parsed = tryParseJson(raw);
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .map((prop) => {
+      if (!prop) return null;
+      const propName = prop.propName || prop.name || prop.title || prop.text || "";
+      const values =
+        (Array.isArray(prop.values) && prop.values) ||
+        (Array.isArray(prop.value) && prop.value) ||
+        (Array.isArray(prop.options) && prop.options) ||
+        [];
+      const normalized = values
+        .map((value) => {
+          if (!value) return null;
+          const rawName =
+            value.valueName ||
+            value.name ||
+            value.text ||
+            value.title ||
+            value.propValue ||
+            value.displayValue ||
+            "";
+          const cleaned = cleanText(rawName);
+          if (!cleaned) return null;
+          const imageUrl =
+            value.image ||
+            value.imageUrl ||
+            value.imgUrl ||
+            value.picUrl ||
+            value.thumb ||
+            value.thumbUrl ||
+            "";
+          return {
+            id:
+              value.valueId ||
+              value.id ||
+              value.skuValueId ||
+              value.propValueId ||
+              cleaned,
+            name: cleaned,
+            image: normalizeImageUrl(imageUrl, sourceUrl),
+            price: parseNumberFromText(
+              value.price || value.salePrice || value.promoPrice || value.discountPrice
+            ),
+          };
+        })
+        .filter(Boolean);
+      if (!normalized.length) return null;
+      return {
+        propId: prop.propId || prop.id || prop.propertyId || "",
+        propName,
+        values: normalized,
+      };
+    })
+    .filter(Boolean);
+};
+
+const parseSkuMap = (html) => {
+  const raw = extractJsonValue(html, "skuMap");
+  const parsed = tryParseJson(raw);
+  if (!parsed || typeof parsed !== "object") return null;
+  return parsed;
+};
+
+const buildSkuVariants = (skuMap, props, sourceUrl) => {
+  if (!skuMap || typeof skuMap !== "object") return [];
+  const propLookup = new Map();
+  const valueLookup = new Map();
+  (props || []).forEach((prop) => {
+    if (!prop) return;
+    if (prop.propId) propLookup.set(String(prop.propId), prop);
+    if (prop.propName) propLookup.set(prop.propName, prop);
+    (prop.values || []).forEach((value) => {
+      if (!value) return;
+      if (value.id) {
+        valueLookup.set(String(value.id), { prop, value });
+      }
+      if (value.name) {
+        valueLookup.set(value.name, { prop, value });
+      }
+    });
+  });
+  const colorRegex = /color|颜色|màu/i;
+  const sizeRegex = /size|尺码|kích cỡ/i;
+  const variants = [];
+  Object.entries(skuMap).forEach(([key, payload]) => {
+    if (!payload || typeof payload !== "object") return;
+    const variantProps = {};
+    let colorImage = "";
+    key
+      .split(";")
+      .map((segment) => segment.trim())
+      .filter(Boolean)
+      .forEach((segment) => {
+        const [propId, valueId] = segment.split(":");
+        if (!propId || !valueId) return;
+        const normalizedPropId = String(propId).trim();
+        const normalizedValueId = String(valueId).trim();
+        const valueEntry =
+          valueLookup.get(normalizedValueId) || valueLookup.get(normalizedValueId.toLowerCase());
+        const prop =
+          propLookup.get(normalizedPropId) ||
+          valueEntry?.prop ||
+          propLookup.get(normalizedValueId) ||
+          propLookup.get(normalizedValueId.toLowerCase());
+        const label =
+          valueEntry?.value?.name || cleanText(normalizedValueId) || normalizedValueId;
+        if (!label) return;
+        const propName = prop?.propName || prop?.propId || normalizedPropId;
+        if (colorRegex.test(propName)) {
+          variantProps.color = label;
+          if (valueEntry?.value?.image) {
+            colorImage = valueEntry.value.image;
+          }
+        } else if (sizeRegex.test(propName)) {
+          variantProps.size = label;
+        } else if (propName) {
+          variantProps[propName] = label;
+        } else {
+          variantProps[propId] = label;
+        }
+      });
+    const price =
+      parseNumberFromText(
+        payload.price ??
+          payload.itemPrice ??
+          payload.salePrice ??
+          payload.promotePrice ??
+          payload.discountPrice ??
+          payload.vipPrice ??
+          payload.priceText
+      ) || null;
+    const stockValue =
+      payload.stock ??
+      payload.stockCount ??
+      payload.quantity ??
+      payload.totalStock ??
+      payload.biz30Day ??
+      payload.quantityDesc ??
+      null;
+    const stock = Number.isNaN(Number(stockValue)) ? null : Number(stockValue);
+    const image = normalizeImageUrl(
+      payload.image ||
+        payload.imgUrl ||
+        payload.skuImage ||
+        payload.thumb ||
+        colorImage ||
+        "",
+      sourceUrl
+    );
+    variants.push({
+      skuId: payload.skuId || payload.id || null,
+      price,
+      stock,
+      props: variantProps,
+      image,
+      key,
+    });
+  });
+  return variants;
+};
+
+const parseSkuData = (html, sourceUrl) => {
+  const props = parseSkuProps(html, sourceUrl);
+  const skuMap = parseSkuMap(html);
+  const colorRegex = /color|颜色|màu/i;
+  const sizeRegex = /size|尺码|kích cỡ/i;
+  const sizes = new Set();
+  const colors = [];
+  const seenColor = new Set();
+  props.forEach((prop) => {
+    if (!prop) return;
+    const name = prop.propName || "";
+    const isColor = colorRegex.test(name);
+    const isSize = sizeRegex.test(name);
+    (prop.values || []).forEach((value) => {
+      if (!value) return;
+      if (isSize && value.name) {
+        sizes.add(value.name);
+      }
+      if (isColor && value.name && !seenColor.has(value.name)) {
+        seenColor.add(value.name);
+        colors.push({ id: value.id, name: value.name, image: value.image });
+      }
+    });
+  });
+  const variants = buildSkuVariants(skuMap, props, sourceUrl);
+  return { sizes: Array.from(sizes), colors, variants };
 };
 
 const parseScriptData = (html) => {
@@ -920,7 +1170,14 @@ const extractFromHtml = (html, sourceUrl, domData) => {
   ];
   const price = priceCandidates.map(parseNumberFromText).find((value) => value);
   const skuSizes = parseSkuSizes(html);
-  const sizes = Array.from(new Set([...(domData?.sizes || []), ...skuSizes]));
+  const skuData = parseSkuData(html, sourceUrl);
+  const sizes = Array.from(
+    new Set([
+      ...(domData?.sizes || []),
+      ...skuSizes,
+      ...(skuData?.sizes || []),
+    ])
+  );
   const ratingCandidates = [jsonLd.rating, quality.rating]
     .map((value) => parseNumberFromText(value))
     .filter((value) => value && value <= 5);
@@ -940,6 +1197,8 @@ const extractFromHtml = (html, sourceUrl, domData) => {
     ratingCount,
     positiveRate: quality.positiveRate ?? null,
     soldCount: quality.soldCount ?? null,
+    colors: skuData.colors || [],
+    variants: skuData.variants || [],
   };
 };
 
