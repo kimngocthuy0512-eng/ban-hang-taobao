@@ -831,6 +831,50 @@ textarea {
   color: var(--muted);
 }
 
+.admin-storage-grid {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin: 1rem 0 0.6rem;
+}
+
+.admin-storage-card {
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: linear-gradient(170deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.95));
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 110px;
+}
+
+.admin-storage-card strong {
+  font-size: 1.25rem;
+  color: var(--text);
+}
+
+.admin-storage-card p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.admin-storage-note {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  border-left: 3px solid rgba(255, 209, 164, 0.8);
+  padding-left: 0.85rem;
+}
+
+.admin-storage-actions {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: flex-end;
+}
+
 .admin-order-card {
   border: 1px solid rgba(255, 255, 255, 0.4);
   padding: 1rem;

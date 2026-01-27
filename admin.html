@@ -76,18 +76,41 @@
             <button class="btn ghost small" type="button" data-admin-quick="products">Sản phẩm</button>
             <button class="btn ghost small" type="button" data-admin-quick="customers">Khách hàng</button>
           </div>
-          <div class="admin-hero-meta">
-            <div>
-              <strong>Đơn mới 3 ngày</strong>
-              <span id="adminNewOrderCountLabel">Đang tải...</span>
-            </div>
-            <div>
-              <strong>Cổng thanh toán</strong>
-              <span id="adminPaymentGateState">Đang tải...</span>
-            </div>
+        <div class="admin-hero-meta">
+          <div>
+            <strong>Đơn mới 3 ngày</strong>
+            <span id="adminNewOrderCountLabel">Đang tải...</span>
           </div>
-        </article>
-        <div class="admin-insight-grid" data-admin-insights></div>
+          <div>
+            <strong>Cổng thanh toán</strong>
+            <span id="adminPaymentGateState">Đang tải...</span>
+          </div>
+        </div>
+      </article>
+      <div class="admin-insight-grid" data-admin-insights></div>
+    </section>
+
+      <section class="section reveal admin-storage-section">
+        <div class="section-header">
+          <h2>Dữ liệu & sao lưu</h2>
+          <div class="line"></div>
+          <p>
+            Mọi thao tác sẽ hiển thị tức thì trong phần admin, dữ liệu được ghi vào bộ nhớ cục bộ, snapshot
+            dự phòng và (nếu có) đồng bộ tới backend để tránh mất mát.
+          </p>
+        </div>
+        <div class="admin-storage-grid" id="adminStorageGrid">
+          <article class="card soft admin-storage-card">
+            <p class="helper small">Đang kiểm tra hệ thống... Vui lòng giữ kết nối.</p>
+          </article>
+        </div>
+        <p class="helper admin-storage-note" id="adminStorageNote">
+          Dữ liệu được lưu trước khi hiển thị và sao lưu mỗi khi có thay đổi.
+        </p>
+        <div class="admin-storage-actions">
+          <button class="btn secondary" type="button" id="adminBackupNow">Lưu bản sao mới</button>
+          <button class="btn ghost" type="button" id="adminExportSnapshot">Xuất dữ liệu cục bộ</button>
+        </div>
       </section>
 
       <section class="section reveal admin-workflow-section">

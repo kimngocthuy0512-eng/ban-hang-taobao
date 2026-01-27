@@ -7130,6 +7130,67 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     `;
   };
 
+  const createAdminStorageCard = ({ value, label, hint }) => `
+    <article class="card soft admin-storage-card">
+      <strong>${escapeHtml(value)}</strong>
+      <p>${escapeHtml(label)}</p>
+      ${hint ? `<span class="helper small">${escapeHtml(hint)}</span>` : ""}
+    </article>
+  `;
+
+  const renderAdminStorageOverview = (message = "") => {
+    const container = document.getElementById("adminStorageGrid");
+    if (!container) return;
+    const snapshot = getSnapshot() || {};
+    const history = readStore(KEYS.backupHistory, []);
+    const counts = {
+      products: Array.isArray(snapshot.products) ? snapshot.products.length : 0,
+      orders: Array.isArray(snapshot.orders) ? snapshot.orders.length : 0,
+      customers: snapshot.customers ? Object.keys(snapshot.customers).length : 0,
+      backup: Array.isArray(history) ? history.length : 0,
+    };
+    const cards = [
+      {
+        label: "Cập nhật gần nhất",
+        value: formatDateTime(snapshot.meta?.updatedAt) || "Chưa lưu",
+        hint: "Hiển thị tức thì trong admin",
+      },
+      {
+        label: "Sản phẩm hiện có",
+        value: `${counts.products} mục`,
+        hint: "Hiển thị ngay sau khi thêm mới",
+      },
+      {
+        label: "Đơn hàng",
+        value: `${counts.orders} đơn`,
+        hint: "Tất cả thao tác đều có ghi nhận",
+      },
+      {
+        label: "Khách hàng",
+        value: `${counts.customers} hồ sơ`,
+        hint: "Thông tin khách được lưu nhanh chóng",
+      },
+      {
+        label: "Snapshot dự phòng",
+        value: `${counts.backup} phiên`,
+        hint: "Giữ các phiên bản để tránh mất dữ liệu",
+      },
+    ];
+    container.innerHTML = cards.map(createAdminStorageCard).join("");
+    const noteElement = document.getElementById("adminStorageNote");
+    if (!noteElement) return;
+    if (message) {
+      noteElement.innerHTML = `<span class="tag">${escapeHtml(message)}</span>`;
+      return;
+    }
+    const settings = getSettings();
+    const syncNote = settings.syncEndpoint
+      ? `Đồng bộ qua ${settings.syncEndpoint}`
+      : "Sync backend chưa bật nhưng server vẫn giữ file server/data/shop-store.json khi có backend.";
+    const helperText = `Mọi thao tác hiển thị trong admin, dữ liệu lưu tại local + ${counts.backup} snapshot cục bộ · ${syncNote}`;
+    noteElement.innerHTML = `<span>${escapeHtml(helperText)}</span>`;
+  };
+
   const sumOrderTotals = (ordersList, settings, products) =>
     ordersList.reduce(
       (acc, order) => {
@@ -7830,7 +7891,24 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     if (orderRefreshBtn) {
       orderRefreshBtn.addEventListener("click", refreshOrders);
     }
+    const backupNowBtn = document.getElementById("adminBackupNow");
+    if (backupNowBtn) {
+      backupNowBtn.addEventListener("click", () => {
+        updateBackup();
+        showNotification("Đã lưu bản sao dữ liệu cục bộ.", "success");
+        renderAdminStorageOverview("Snapshot cục bộ đã được tạo.");
+      });
+    }
+    const exportSnapshotBtn = document.getElementById("adminExportSnapshot");
+    if (exportSnapshotBtn) {
+      exportSnapshotBtn.addEventListener("click", () => {
+        const date = new Date().toISOString().slice(0, 10);
+        downloadJSON(getSnapshot(), `orderhub-backup-${date}.json`);
+        renderAdminStorageOverview("Đã xuất dữ liệu cục bộ.");
+      });
+    }
     renderAllCustomerSections();
+    renderAdminStorageOverview();
     refreshAdminInsights();
   };
 
