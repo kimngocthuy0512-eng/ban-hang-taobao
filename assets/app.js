@@ -7049,6 +7049,9 @@ const computeTotals = (order, settings, products, overrides = {}) => {
     const orders = getOrders();
     const products = getProducts();
     const orderCount = orders.length;
+    const newOrders = orders.filter(
+      (order) => Date.now() - (order.createdAt || 0) <= ADMIN_NEW_ORDER_WINDOW
+    );
     const totalRevenueVND = orders.reduce((sum, order) => {
       const totals = computeTotals(order, settings, products);
       return sum + (totals.totalVND || 0);
